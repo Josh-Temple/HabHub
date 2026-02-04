@@ -1,0 +1,5 @@
+{
+  "name": "HabHub",
+  "description": "An extremely minimal habit tracker with Gemini-powered insights and external app integration. Focuses on the beauty of subtraction.",
+  "requestFramePermissions": []
+}
