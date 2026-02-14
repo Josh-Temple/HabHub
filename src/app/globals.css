@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+input, select, textarea, button {
+  @apply border border-slate-300 rounded px-3 py-2;
+}
+
+button {
+  @apply bg-slate-900 text-white disabled:bg-slate-400;
+}
