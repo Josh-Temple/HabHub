@@ -10,7 +10,7 @@ import { CreateHabitView } from './views/CreateHabitView';
 
 type ViewTab = 'today' | 'create' | 'analysis' | 'habits' | 'settings';
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   // Load V2 data (handles migration internally)
   const [data, setData] = useState<AppData>(loadData);
   const [activeTab, setActiveTab] = useState<ViewTab>('today');
@@ -29,7 +29,8 @@ const App: React.FC = () => {
     const todayKey = getDateKey();
     
     // Filter to only include habits that are actually DUE today.
-    const dueHabits = data.habits.filter(h => isHabitDue(h, todayKey));
+    // Note: We now pass entries to isHabitDue for flexible scheduling check
+    const dueHabits = data.habits.filter(h => isHabitDue(h, todayKey, data.entries));
     
     const completed = dueHabits.filter(h => {
       const entry = data.entries.find(e => e.habitId === h.id && e.dateKey === todayKey);
@@ -121,18 +122,38 @@ const App: React.FC = () => {
   }, [editingHabitId]);
 
   const handleDeleteHabit = useCallback((id: string) => {
-    if (window.confirm('Are you sure you want to remove this habit?')) {
+    if (window.confirm('Are you sure you want to delete this habit permanently?')) {
       setData(prev => ({
         ...prev,
         habits: prev.habits.filter(h => h.id !== id),
         entries: prev.entries.filter(e => e.habitId !== id) // Cleanup entries too
       }));
+      setEditingHabitId(null);
+      setActiveTab('today');
     }
   }, []);
 
   const handleEditHabit = useCallback((id: string) => {
     setEditingHabitId(id);
     setActiveTab('create');
+  }, []);
+
+  const handleMoveHabit = useCallback((id: string, direction: 'up' | 'down') => {
+    setData(prev => {
+      const index = prev.habits.findIndex(h => h.id === id);
+      if (index < 0) return prev;
+      
+      const newHabits = [...prev.habits];
+      if (direction === 'up' && index > 0) {
+        // Swap with previous
+        [newHabits[index], newHabits[index - 1]] = [newHabits[index - 1], newHabits[index]];
+      } else if (direction === 'down' && index < newHabits.length - 1) {
+        // Swap with next
+        [newHabits[index], newHabits[index + 1]] = [newHabits[index + 1], newHabits[index]];
+      }
+      
+      return { ...prev, habits: newHabits };
+    });
   }, []);
 
   const toggleSettings = useCallback(() => {
@@ -160,6 +181,7 @@ const App: React.FC = () => {
       case 'create': return (
         <CreateHabitView 
           onSave={handleSaveHabit} 
+          onDelete={handleDeleteHabit}
           initialData={habitToEdit} 
           onCancel={() => {
             setEditingHabitId(null);
@@ -171,8 +193,8 @@ const App: React.FC = () => {
       case 'habits': return (
         <HabitsListView 
           habits={data.habits} 
-          onDelete={handleDeleteHabit} 
           onEdit={handleEditHabit} 
+          onMove={handleMoveHabit}
         />
       );
       case 'settings': return <SettingsView />;
@@ -186,7 +208,7 @@ const App: React.FC = () => {
         />
       );
     }
-  }, [activeTab, data, stats, handleLog, handleToggleComplete, handleSaveHabit, handleDeleteHabit, handleEditHabit, habitToEdit]);
+  }, [activeTab, data, stats, handleLog, handleToggleComplete, handleSaveHabit, handleDeleteHabit, handleEditHabit, handleMoveHabit, habitToEdit]);
 
   return (
     <div className="min-h-screen bg-white text-pure-black">
@@ -234,5 +256,3 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-export default App;

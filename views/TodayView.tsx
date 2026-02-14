@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Habit, Entry } from '../types';
 import { HabitItem } from '../components/HabitItem';
-import { getDateKey, isHabitDue } from '../utils/dataUtils';
+import { getDateKey, isHabitDue, getPeriodProgress } from '../utils/dataUtils';
 
 interface TodayViewProps {
   habits: Habit[];
@@ -15,17 +15,34 @@ interface TodayViewProps {
 export const TodayView: React.FC<TodayViewProps> = ({ 
   habits, entries, completedCount, onLog, onToggleComplete 
 }) => {
-  const handleLaunch = (url: string) => window.open(url, '_blank');
+  const handleLaunch = (url: string) => {
+    // Check protocol to determine launch strategy
+    // Case insensitive check for robustness
+    const lowerUrl = url.toLowerCase();
+    const isWeb = lowerUrl.startsWith('http://') || lowerUrl.startsWith('https://');
+    
+    if (isWeb) {
+      // Open standard web links in a new tab to keep the app open
+      window.open(url, '_blank');
+    } else {
+      // For intents (intent://), custom schemes (app://), mailto:, tel:, etc.
+      // we must assign to window.location.href to trigger the OS app handler correctly.
+      // window.open(..., '_blank') often blocks deep links on mobile.
+      window.location.href = url;
+    }
+  };
+  
   const todayKey = getDateKey();
 
   // Filter habits to only show those scheduled for today
   const { recurringHabits, oneOffTasks } = useMemo(() => {
-    const todayHabits = habits.filter(habit => isHabitDue(habit, todayKey));
+    // Note: isHabitDue now needs 'entries' to check flexible habits logic
+    const todayHabits = habits.filter(habit => isHabitDue(habit, todayKey, entries));
     return {
         recurringHabits: todayHabits.filter(h => h.frequency !== 'once'),
         oneOffTasks: todayHabits.filter(h => h.frequency === 'once')
     };
-  }, [habits, todayKey]);
+  }, [habits, todayKey, entries]);
 
   const totalVisible = recurringHabits.length + oneOffTasks.length;
 
@@ -62,6 +79,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     const current = entry ? entry.count : 0;
                     const isDone = current >= habit.goal;
                     
+                    // Calculate flexible period progress if applicable
+                    let periodProgress = undefined;
+                    if (habit.targetIntervalCount) {
+                        periodProgress = getPeriodProgress(habit, entries, todayKey);
+                    }
+                    
                     return (
                         <HabitItem 
                         key={habit.id} 
@@ -71,6 +94,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         onLog={onLog}
                         onToggleComplete={onToggleComplete}
                         onLaunch={handleLaunch}
+                        periodProgress={periodProgress}
                         />
                     );
                     })}

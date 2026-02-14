@@ -9,10 +9,11 @@ interface HabitItemProps {
   onLog: (id: string) => void;
   onToggleComplete: (id: string) => void;
   onLaunch: (url: string) => void;
+  periodProgress?: { current: number, target: number }; // Optional: For flexible habits
 }
 
 export const HabitItem: React.FC<HabitItemProps> = ({ 
-  habit, current, isDone, onLog, onToggleComplete, onLaunch 
+  habit, current, isDone, onLog, onToggleComplete, onLaunch, periodProgress
 }) => {
   const accentColor = habit.color || '#000000';
   const isSingleGoal = habit.goal === 1;
@@ -30,6 +31,20 @@ export const HabitItem: React.FC<HabitItemProps> = ({
 
   // Heuristic: Material icons are typically longer strings. Emojis are 1-2 chars.
   const isMaterialIcon = habit.icon && habit.icon.length > 2;
+
+  // Determine subtitle text
+  let subtitle = '';
+  if (isDone) {
+      subtitle = 'Completed';
+  } else if (periodProgress) {
+      // It's a flexible habit
+      const unit = habit.frequency === 'weekly' ? 'Week' : 'Month';
+      subtitle = `${unit} Goal: ${periodProgress.current} / ${periodProgress.target}`;
+  } else if (isSingleGoal) {
+      subtitle = 'Tap to complete';
+  } else {
+      subtitle = `${current} / ${habit.goal} completed`;
+  }
 
   return (
     <div className="group flex items-center justify-between py-5 border-b border-border-gray last:border-none transition-all">
@@ -60,7 +75,7 @@ export const HabitItem: React.FC<HabitItemProps> = ({
             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
           )}
           <p className="text-dim-gray text-[10px] font-black uppercase tracking-[0.3em]">
-            {isDone ? 'Completed' : (isSingleGoal ? 'Tap to complete' : `${current} / ${habit.goal} completed`)}
+            {subtitle}
           </p>
         </div>
       </div>

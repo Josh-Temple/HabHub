@@ -8,6 +8,7 @@ export interface Habit {
   frequency: HabitFrequency;
   weekDays?: number[]; // 0=Sunday, 1=Monday...
   monthDays?: number[]; // 1-31, 32=Last Day
+  targetIntervalCount?: number; // New: For "3 times per week" style habits. If set, overrides specific days.
   targetDate?: string; // YYYY-MM-DD for 'once' frequency
   color: string;
   icon: string;
