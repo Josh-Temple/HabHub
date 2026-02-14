@@ -41,9 +41,10 @@ Open `http://localhost:3000`.
 - `/app/analysis`
 - `/app/settings`
 
-`/app/*` requires login and redirects to `/login` when unauthenticated.
+`/app/*` requires login and redirects to `/login` when unauthenticated (enforced in `src/middleware.ts`).
 
 ## Feature notes
+- Login uses Supabase Magic Link callback route `/auth/callback` and then redirects to `/app/today`.
 - Today page shows habits due for today via pure function `isHabitDue`.
 - Entry updates are done with upsert conflict key `user_id,habit_id,date_key`.
 - Settings supports JSON export/import (cloud ⇄ JSON).
