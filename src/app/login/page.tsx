@@ -24,7 +24,7 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/login` }
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/app/today` }
     });
     setMessage(error ? error.message : 'メールを送信しました。Magic Link を確認してください。');
   };
