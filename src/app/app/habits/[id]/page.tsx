@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { HabitForm } from '@/components/HabitForm';
 import { createClient } from '@/lib/supabase/browser';
+import { formatHabitWriteError } from '@/lib/supabase/habitErrors';
 import { Habit } from '@/types/domain';
 
 export default function EditHabitPage() {
@@ -21,7 +22,7 @@ export default function EditHabitPage() {
   return <HabitForm initial={habit} onSubmit={async (payload) => {
     const { error } = await createClient().from('habits').upsert(payload);
     if (error) {
-      throw new Error((error as PostgrestError).message);
+      throw new Error(formatHabitWriteError(error as PostgrestError));
     }
     router.push('/app/habits');
   }} />;
