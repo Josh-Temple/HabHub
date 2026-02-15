@@ -38,6 +38,20 @@ alter table public.user_settings enable row level security;
 alter table public.habits enable row level security;
 alter table public.entries enable row level security;
 
+drop policy if exists "user_settings_select_own" on public.user_settings;
+drop policy if exists "user_settings_insert_own" on public.user_settings;
+drop policy if exists "user_settings_update_own" on public.user_settings;
+
+drop policy if exists "habits_select_own" on public.habits;
+drop policy if exists "habits_insert_own" on public.habits;
+drop policy if exists "habits_update_own" on public.habits;
+drop policy if exists "habits_delete_own" on public.habits;
+
+drop policy if exists "entries_select_own" on public.entries;
+drop policy if exists "entries_insert_own" on public.entries;
+drop policy if exists "entries_update_own" on public.entries;
+drop policy if exists "entries_delete_own" on public.entries;
+
 create policy "user_settings_select_own" on public.user_settings for select using (auth.uid() = user_id);
 create policy "user_settings_insert_own" on public.user_settings for insert with check (auth.uid() = user_id);
 create policy "user_settings_update_own" on public.user_settings for update using (auth.uid() = user_id);
