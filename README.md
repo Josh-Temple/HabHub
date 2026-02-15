@@ -18,6 +18,7 @@ HabHub is a habit tracker with Supabase Auth, RLS-protected data isolation, due-
 Run the following SQL in Supabase SQL editor:
 
 - `supabase/sql/001_schema_rls.sql`
+- `supabase/sql/002_add_goal_count_to_habits.sql` (safe to run on existing projects; backfills missing `goal_count`)
 
 This creates:
 - `user_settings`
