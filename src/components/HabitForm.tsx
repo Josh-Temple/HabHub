@@ -25,6 +25,8 @@ export function HabitForm({ initial, onSubmit }: Props) {
   const [icon, setIcon] = useState('☯');
   const [customIcon, setCustomIcon] = useState('');
   const [colorAccent, setColorAccent] = useState('#000000');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const specificMode = frequency === 'weekly_specific' || frequency === 'monthly_specific';
   const frequencyLabel = useMemo(() => {
@@ -48,21 +50,30 @@ export function HabitForm({ initial, onSubmit }: Props) {
       className="space-y-7 sm:space-y-8"
       onSubmit={async (e) => {
         e.preventDefault();
-        await onSubmit({
-          ...initial,
-          name,
-          frequency,
-          goal_count: goal,
-          schedule: {
-            weekDays: weekDays.length ? weekDays : undefined,
-            monthDays: monthDays.length ? monthDays : undefined,
-            targetIntervalCount,
-            interval,
-            targetDate: targetDate || undefined
-          },
-          external_url: externalUrl || null,
-          archived
-        });
+        setSubmitError(null);
+        setIsSubmitting(true);
+        try {
+          await onSubmit({
+            ...initial,
+            name,
+            frequency,
+            goal_count: goal,
+            schedule: {
+              weekDays: weekDays.length ? weekDays : undefined,
+              monthDays: monthDays.length ? monthDays : undefined,
+              targetIntervalCount,
+              interval,
+              targetDate: targetDate || undefined
+            },
+            external_url: externalUrl || null,
+            archived
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to save item. Please try again.';
+          setSubmitError(message);
+        } finally {
+          setIsSubmitting(false);
+        }
       }}
     >
       <section>
@@ -183,8 +194,12 @@ export function HabitForm({ initial, onSubmit }: Props) {
         Archive this habit
       </label>
 
+      {submitError && (
+        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{submitError}</p>
+      )}
+
       <button type="submit" className="tap-active w-full rounded-full bg-black py-4 text-[12px] font-black uppercase tracking-[0.35em] text-white sm:py-5 sm:text-[13px] sm:tracking-[0.6em]">
-        Confirm
+        {isSubmitting ? 'Saving…' : 'Confirm'}
       </button>
     </form>
   );
