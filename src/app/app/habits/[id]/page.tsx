@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { HabitForm } from '@/components/HabitForm';
 import { createClient } from '@/lib/supabase/browser';
 import { formatHabitWriteError } from '@/lib/supabase/habitErrors';
+import { withLegacyTitleFallback } from '@/lib/supabase/habitWriteCompat';
 import { Habit } from '@/types/domain';
 
 export default function EditHabitPage() {
@@ -20,9 +21,20 @@ export default function EditHabitPage() {
   if (!habit) return <p>Loading...</p>;
 
   return <HabitForm initial={habit} onSubmit={async (payload) => {
-    const { error } = await createClient().from('habits').upsert(payload);
+    const supabase = createClient();
+    const error = await withLegacyTitleFallback(
+      async () => {
+        const { error } = await supabase.from('habits').upsert(payload);
+        return { error: error as PostgrestError | null };
+      },
+      async () => {
+        const { error } = await supabase.from('habits').upsert({ ...payload, title: payload.name });
+        return { error: error as PostgrestError | null };
+      }
+    );
+
     if (error) {
-      throw new Error(formatHabitWriteError(error as PostgrestError));
+      throw new Error(formatHabitWriteError(error));
     }
     router.push('/app/habits');
   }} />;

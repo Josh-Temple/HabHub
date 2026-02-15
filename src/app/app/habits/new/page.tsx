@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { HabitForm } from '@/components/HabitForm';
 import { createClient } from '@/lib/supabase/browser';
 import { formatHabitWriteError } from '@/lib/supabase/habitErrors';
+import { withLegacyTitleFallback } from '@/lib/supabase/habitWriteCompat';
 
 export default function NewHabitPage() {
   const router = useRouter();
@@ -19,9 +20,21 @@ export default function NewHabitPage() {
       throw new Error('ログイン状態を確認できませんでした。再ログインしてからもう一度お試しください。');
     }
 
-    const { error } = await supabase.from('habits').insert({ ...payload, user_id: user.id });
+    const error = await withLegacyTitleFallback(
+      async () => {
+        const { error } = await supabase.from('habits').insert({ ...payload, user_id: user.id });
+        return { error: error as PostgrestError | null };
+      },
+      async () => {
+        const { error } = await supabase
+          .from('habits')
+          .insert({ ...payload, title: payload.name, user_id: user.id });
+        return { error: error as PostgrestError | null };
+      }
+    );
+
     if (error) {
-      throw new Error(formatHabitWriteError(error as PostgrestError));
+      throw new Error(formatHabitWriteError(error));
     }
     router.push('/app/habits');
   }} />;
