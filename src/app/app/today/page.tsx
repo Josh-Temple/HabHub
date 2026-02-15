@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
-import { isHabitDue } from '@/lib/domain/isHabitDue';
 import { toDateKey } from '@/lib/domain/date';
+import { isEntryDone, nextCountFromBump, nextCountFromToggle } from '@/lib/domain/entryProgress';
+import { isHabitDue } from '@/lib/domain/isHabitDue';
 import { Entry, Habit, UserSettings } from '@/types/domain';
 
 function ProgressRing({ progress, done }: { progress: number; done: boolean }) {
@@ -35,20 +36,38 @@ export default function TodayPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [settings, setSettings] = useState<UserSettings>({ user_id: '', week_start: 1, migration_done: false });
+  const [busyHabitId, setBusyHabitId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const today = toDateKey(new Date());
+
+  const entryMap = useMemo(
+    () => new Map(entries.filter((entry) => entry.date_key === today).map((entry) => [entry.habit_id, entry])),
+    [entries, today]
+  );
 
   const load = async () => {
     const supabase = createClient();
-    const [{ data: hs }, { data: es }, { data: s }, { data: u }] = await Promise.all([
+    const [{ data: hs, error: habitsError }, { data: es, error: entriesError }, { data: s }, { data: u, error: userError }] = await Promise.all([
       supabase.from('habits').select('*').order('sort_order'),
       supabase.from('entries').select('*').gte('date_key', new Date(Date.now() - 1000 * 60 * 60 * 24 * 120).toISOString().slice(0, 10)),
       supabase.from('user_settings').select('*').single(),
-      supabase.auth.getUser()
+      supabase.auth.getUser(),
     ]);
+
+    if (habitsError || entriesError || userError) {
+      setErrorMessage('読み込みに失敗しました。再度お試しください。');
+      return;
+    }
+
     setHabits((hs ?? []) as Habit[]);
     setEntries((es ?? []) as Entry[]);
-    if (s) setSettings(s as UserSettings);
-    else if (u.user) {
+
+    if (s) {
+      setSettings(s as UserSettings);
+      return;
+    }
+
+    if (u.user) {
       const { data } = await supabase
         .from('user_settings')
         .upsert({ user_id: u.user.id, week_start: 1 }, { onConflict: 'user_id' })
@@ -62,43 +81,69 @@ export default function TodayPage() {
     void load();
   }, []);
 
-  const dueHabits = useMemo(() => habits.filter((h) => isHabitDue(h, today, entries, settings)), [habits, entries, settings, today]);
-  const routineHabits = dueHabits.filter((h) => h.frequency !== 'once');
-  const oneOffHabits = dueHabits.filter((h) => h.frequency === 'once');
+  const dueHabits = useMemo(() => habits.filter((habit) => isHabitDue(habit, today, entries, settings)), [habits, entries, settings, today]);
+  const routineHabits = dueHabits.filter((habit) => habit.frequency !== 'once');
+  const oneOffHabits = dueHabits.filter((habit) => habit.frequency === 'once');
+
+  const updateEntry = async (habit: Habit, count: number) => {
+    const supabase = createClient();
+    setErrorMessage('');
+    setBusyHabitId(habit.id);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
+        setErrorMessage('ログイン状態を確認できませんでした。再ログインしてください。');
+        return;
+      }
+
+      const { error } = await supabase.from('entries').upsert(
+        {
+          user_id: user.id,
+          habit_id: habit.id,
+          date_key: today,
+          count,
+          completed: count >= habit.goal_count,
+        },
+        { onConflict: 'user_id,habit_id,date_key' }
+      );
+
+      if (error) {
+        setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+        return;
+      }
+
+      await load();
+    } finally {
+      setBusyHabitId(null);
+    }
+  };
 
   const bump = async (habit: Habit, delta: number) => {
-    const current = entries.find((e) => e.habit_id === habit.id && e.date_key === today);
-    const count = Math.max(0, (current?.count ?? 0) + delta);
-    const completed = count >= habit.goal_count;
-    await createClient().from('entries').upsert({ habit_id: habit.id, date_key: today, count, completed }, { onConflict: 'user_id,habit_id,date_key' });
-    await load();
+    const current = entryMap.get(habit.id);
+    await updateEntry(habit, nextCountFromBump(current, habit, delta));
   };
 
   const toggleDone = async (habit: Habit) => {
-    const current = entries.find((e) => e.habit_id === habit.id && e.date_key === today);
-    const targetCount = current?.completed ? 0 : habit.goal_count;
-    await createClient().from('entries').upsert(
-      { habit_id: habit.id, date_key: today, count: targetCount, completed: !current?.completed },
-      { onConflict: 'user_id,habit_id,date_key' }
-    );
-    await load();
+    const current = entryMap.get(habit.id);
+    await updateEntry(habit, nextCountFromToggle(current, habit));
   };
 
-  const completedCount = dueHabits.filter((h) => {
-    const e = entries.find((en) => en.habit_id === h.id && en.date_key === today);
-    return (e?.count ?? 0) >= h.goal_count;
-  }).length;
+  const completedCount = dueHabits.filter((habit) => isEntryDone(entryMap.get(habit.id), habit)).length;
 
   const HabitRow = ({ habit }: { habit: Habit }) => {
-    const e = entries.find((en) => en.habit_id === habit.id && en.date_key === today);
-    const count = e?.count ?? 0;
-    const done = count >= habit.goal_count;
+    const entry = entryMap.get(habit.id);
+    const count = entry?.count ?? 0;
+    const done = isEntryDone(entry, habit);
     const progress = Math.min(1, count / habit.goal_count);
 
     return (
       <div className="border-b border-[#ebebeb] py-5 sm:py-6">
         <div className="flex items-start justify-between gap-3 sm:items-center sm:gap-4">
-          <button className="tap-active text-left" onClick={() => void bump(habit, 1)}>
+          <button className="tap-active text-left" onClick={() => void bump(habit, 1)} disabled={busyHabitId === habit.id}>
             <p className={`text-lg font-black leading-tight tracking-tight sm:text-xl ${done ? 'opacity-40 line-through' : ''}`}>{habit.name}</p>
             <p className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#888] sm:tracking-[0.4em]">
               <span className={`h-2 w-2 rounded-full ${done ? 'bg-black' : 'bg-[#888]'}`} />
@@ -111,7 +156,7 @@ export default function TodayPage() {
                 ↗
               </a>
             )}
-            <button onClick={() => void toggleDone(habit)}>
+            <button onClick={() => void toggleDone(habit)} disabled={busyHabitId === habit.id}>
               <ProgressRing progress={progress} done={done} />
             </button>
           </div>
@@ -138,19 +183,21 @@ export default function TodayPage() {
         </div>
       </section>
 
+      {errorMessage && <p className="text-sm font-bold text-[#a33]">{errorMessage}</p>}
+
       {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#888] sm:py-24 sm:text-xl">Nothing Scheduled</p>}
 
       {routineHabits.length > 0 && (
         <section>
           <p className="micro-label">Routine</p>
-          <div className="mt-2 sm:mt-3">{routineHabits.map((h) => <HabitRow key={h.id} habit={h} />)}</div>
+          <div className="mt-2 sm:mt-3">{routineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
         </section>
       )}
 
       {oneOffHabits.length > 0 && (
         <section>
           <p className="micro-label">One-off Tasks</p>
-          <div className="mt-2 sm:mt-3">{oneOffHabits.map((h) => <HabitRow key={h.id} habit={h} />)}</div>
+          <div className="mt-2 sm:mt-3">{oneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
         </section>
       )}
     </div>
