@@ -10,7 +10,16 @@ export default function NewHabitPage() {
   const router = useRouter();
 
   return <HabitForm onSubmit={async (payload) => {
-    const { error } = await createClient().from('habits').insert(payload);
+    const supabase = createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error('ログイン状態を確認できませんでした。再ログインしてからもう一度お試しください。');
+    }
+
+    const { error } = await supabase.from('habits').insert({ ...payload, user_id: user.id });
     if (error) {
       throw new Error(formatHabitWriteError(error as PostgrestError));
     }
