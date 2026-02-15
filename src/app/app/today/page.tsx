@@ -96,16 +96,16 @@ export default function TodayPage() {
     const progress = Math.min(1, count / habit.goal_count);
 
     return (
-      <div className="border-b border-[#ebebeb] py-6">
-        <div className="flex items-center justify-between gap-4">
+      <div className="border-b border-[#ebebeb] py-5 sm:py-6">
+        <div className="flex items-start justify-between gap-3 sm:items-center sm:gap-4">
           <button className="tap-active text-left" onClick={() => void bump(habit, 1)}>
-            <p className={`text-xl font-black tracking-tight ${done ? 'opacity-40 line-through' : ''}`}>{habit.name}</p>
-            <p className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-[#888]">
+            <p className={`text-lg font-black leading-tight tracking-tight sm:text-xl ${done ? 'opacity-40 line-through' : ''}`}>{habit.name}</p>
+            <p className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#888] sm:tracking-[0.4em]">
               <span className={`h-2 w-2 rounded-full ${done ? 'bg-black' : 'bg-[#888]'}`} />
               {habit.frequency === 'flexible' ? `Weekly Goal: ${count} / ${habit.goal_count}` : `${count} / ${habit.goal_count} completed`}
             </p>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {habit.external_url && (
               <a href={habit.external_url} target="_blank" rel="noreferrer" className="text-[#888] tap-active">
                 ↗
@@ -121,36 +121,36 @@ export default function TodayPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7 sm:space-y-8">
       <section>
         <p className="micro-label">Daily Snapshot</p>
-        <h1 className="mt-3 text-6xl font-black leading-none tracking-tighter">Current Focus</h1>
+        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">Current Focus</h1>
       </section>
 
-      <section className="border-y border-[#ebebeb] py-6">
-        <div className="flex items-center gap-6">
-          <p className="text-6xl font-black leading-none tracking-tighter">
+      <section className="border-y border-[#ebebeb] py-5 sm:py-6">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <p className="text-5xl font-black leading-none tracking-tighter sm:text-6xl">
             {String(completedCount).padStart(2, '0')}
-            <span className="ml-2 text-4xl text-[#d1d1d4]">/{String(dueHabits.length).padStart(2, '0')}</span>
+            <span className="ml-1 text-3xl text-[#d1d1d4] sm:ml-2 sm:text-4xl">/{String(dueHabits.length).padStart(2, '0')}</span>
           </p>
-          <div className="h-14 w-px bg-[#ebebeb]" />
-          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-black">Completed<br /><span className="text-[#bcbcc0]">Today's Progress</span></p>
+          <div className="h-12 w-px bg-[#ebebeb] sm:h-14" />
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-black sm:tracking-[0.5em]">Completed<br /><span className="text-[#bcbcc0]">Today's Progress</span></p>
         </div>
       </section>
 
-      {dueHabits.length === 0 && <p className="py-24 text-center text-xl font-bold text-[#888]">Nothing Scheduled</p>}
+      {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#888] sm:py-24 sm:text-xl">Nothing Scheduled</p>}
 
       {routineHabits.length > 0 && (
         <section>
           <p className="micro-label">Routine</p>
-          <div className="mt-3">{routineHabits.map((h) => <HabitRow key={h.id} habit={h} />)}</div>
+          <div className="mt-2 sm:mt-3">{routineHabits.map((h) => <HabitRow key={h.id} habit={h} />)}</div>
         </section>
       )}
 
       {oneOffHabits.length > 0 && (
         <section>
           <p className="micro-label">One-off Tasks</p>
-          <div className="mt-3">{oneOffHabits.map((h) => <HabitRow key={h.id} habit={h} />)}</div>
+          <div className="mt-2 sm:mt-3">{oneOffHabits.map((h) => <HabitRow key={h.id} habit={h} />)}</div>
         </section>
       )}
     </div>
