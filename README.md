@@ -20,6 +20,7 @@ Run the following SQL in Supabase SQL editor:
 - `supabase/sql/001_schema_rls.sql`
 - `supabase/sql/002_add_goal_count_to_habits.sql` (safe to run on existing projects; backfills missing `goal_count`)
 - `supabase/sql/003_add_name_column_compat.sql` (for legacy schemas that still have `title` instead of `name`)
+- `supabase/sql/004_make_title_compatible.sql` (if `title` is still NOT NULL; keeps `name`/`title` in sync during transition)
 
 This creates:
 - `user_settings`
