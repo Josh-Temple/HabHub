@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
+import { shouldFallbackEntryUpsert } from '@/lib/supabase/entryWriteCompat';
 import { toDateKey } from '@/lib/domain/date';
 import { isEntryDone, nextCountFromBump, nextCountFromToggle } from '@/lib/domain/entryProgress';
 import { isHabitDue } from '@/lib/domain/isHabitDue';
@@ -119,7 +120,7 @@ export default function TodayPage() {
         return;
       }
 
-      const shouldFallbackToUpdateInsert = upsertError.code === '42P10' || upsertError.message.includes('ON CONFLICT');
+      const shouldFallbackToUpdateInsert = shouldFallbackEntryUpsert(upsertError);
 
       if (!shouldFallbackToUpdateInsert) {
         console.error('[today/updateEntry] failed to upsert entry', {
@@ -133,6 +134,14 @@ export default function TodayPage() {
         setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
         return;
       }
+
+      console.warn('[today/updateEntry] upsert fallback triggered', {
+        code: upsertError.code,
+        message: upsertError.message,
+        details: upsertError.details,
+        hint: upsertError.hint,
+        entryKey,
+      });
 
       const { data: updatedRows, error: updateError } = await supabase
         .from('entries')
