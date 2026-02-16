@@ -110,6 +110,30 @@ export default function TodayPage() {
         completed: count >= habit.goal_count,
       };
 
+      const { error: upsertError } = await supabase
+        .from('entries')
+        .upsert({ ...entryKey, ...entryValues }, { onConflict: 'user_id,habit_id,date_key' });
+
+      if (!upsertError) {
+        await load();
+        return;
+      }
+
+      const shouldFallbackToUpdateInsert = upsertError.code === '42P10' || upsertError.message.includes('ON CONFLICT');
+
+      if (!shouldFallbackToUpdateInsert) {
+        console.error('[today/updateEntry] failed to upsert entry', {
+          code: upsertError.code,
+          message: upsertError.message,
+          details: upsertError.details,
+          hint: upsertError.hint,
+          entryKey,
+          entryValues,
+        });
+        setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+        return;
+      }
+
       const { data: updatedRows, error: updateError } = await supabase
         .from('entries')
         .update(entryValues)
@@ -119,6 +143,14 @@ export default function TodayPage() {
         .select('habit_id');
 
       if (updateError) {
+        console.error('[today/updateEntry] failed to update entry in fallback', {
+          code: updateError.code,
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+          entryKey,
+          entryValues,
+        });
         setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
         return;
       }
@@ -130,6 +162,14 @@ export default function TodayPage() {
           const shouldRetryUpdate = insertError.code === '23505';
 
           if (!shouldRetryUpdate) {
+            console.error('[today/updateEntry] failed to insert entry in fallback', {
+              code: insertError.code,
+              message: insertError.message,
+              details: insertError.details,
+              hint: insertError.hint,
+              entryKey,
+              entryValues,
+            });
             setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
             return;
           }
@@ -142,6 +182,14 @@ export default function TodayPage() {
             .eq('date_key', entryKey.date_key);
 
           if (retryUpdateError) {
+            console.error('[today/updateEntry] failed to update entry after duplicate insert fallback', {
+              code: retryUpdateError.code,
+              message: retryUpdateError.message,
+              details: retryUpdateError.details,
+              hint: retryUpdateError.hint,
+              entryKey,
+              entryValues,
+            });
             setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
             return;
           }
