@@ -39,6 +39,7 @@ export default function TodayPage() {
   const [settings, setSettings] = useState<UserSettings>({ user_id: '', week_start: 1, migration_done: false });
   const [busyHabitId, setBusyHabitId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [retryTarget, setRetryTarget] = useState<{ habitId: string; count: number } | null>(null);
   const today = toDateKey(new Date());
 
   const entryMap = useMemo(
@@ -86,10 +87,57 @@ export default function TodayPage() {
   const routineHabits = dueHabits.filter((habit) => habit.frequency !== 'once');
   const oneOffHabits = dueHabits.filter((habit) => habit.frequency === 'once');
 
-  const updateEntry = async (habit: Habit, count: number) => {
+  const applyOptimisticEntry = (habit: Habit, count: number) => {
+    setEntries((previousEntries) => {
+      let found = false;
+      const nextEntries = previousEntries.map((entry) => {
+        if (entry.habit_id !== habit.id || entry.date_key !== today) return entry;
+        found = true;
+        return {
+          ...entry,
+          count,
+          completed: count >= habit.goal_count,
+        };
+      });
+
+      if (found) return nextEntries;
+
+      return [
+        ...nextEntries,
+        {
+          user_id: settings.user_id,
+          habit_id: habit.id,
+          date_key: today,
+          count,
+          completed: count >= habit.goal_count,
+        },
+      ];
+    });
+  };
+
+  const rollbackOptimisticEntry = (habit: Habit, previousEntry: Entry | undefined) => {
+    setEntries((previousEntries) => {
+      if (previousEntry) {
+        let restored = false;
+        const restoredEntries = previousEntries.map((entry) => {
+          if (entry.habit_id !== habit.id || entry.date_key !== today) return entry;
+          restored = true;
+          return previousEntry;
+        });
+        if (restored) return restoredEntries;
+        return [...restoredEntries, previousEntry];
+      }
+
+      return previousEntries.filter((entry) => !(entry.habit_id === habit.id && entry.date_key === today));
+    });
+  };
+
+  const updateEntry = async (habit: Habit, count: number, previousEntry: Entry | undefined) => {
     const supabase = createClient();
     setErrorMessage('');
+    setRetryTarget(null);
     setBusyHabitId(habit.id);
+    applyOptimisticEntry(habit, count);
 
     try {
       const {
@@ -97,6 +145,8 @@ export default function TodayPage() {
         error: userError,
       } = await supabase.auth.getUser();
       if (userError || !user) {
+        rollbackOptimisticEntry(habit, previousEntry);
+        setRetryTarget({ habitId: habit.id, count });
         setErrorMessage('ログイン状態を確認できませんでした。再ログインしてください。');
         return;
       }
@@ -143,6 +193,8 @@ export default function TodayPage() {
       );
 
       if (!result.ok) {
+        rollbackOptimisticEntry(habit, previousEntry);
+        setRetryTarget({ habitId: habit.id, count });
         console.error('[today/updateEntry] failed to persist entry', {
           code: result.error.code,
           message: result.error.message,
@@ -156,8 +208,6 @@ export default function TodayPage() {
         setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
         return;
       }
-
-      await load();
     } finally {
       setBusyHabitId(null);
     }
@@ -165,12 +215,23 @@ export default function TodayPage() {
 
   const bump = async (habit: Habit, delta: number) => {
     const current = entryMap.get(habit.id);
-    await updateEntry(habit, nextCountFromBump(current, habit, delta));
+    await updateEntry(habit, nextCountFromBump(current, habit, delta), current);
   };
 
   const toggleDone = async (habit: Habit) => {
     const current = entryMap.get(habit.id);
-    await updateEntry(habit, nextCountFromToggle(current, habit));
+    await updateEntry(habit, nextCountFromToggle(current, habit), current);
+  };
+
+  const retryUpdate = async () => {
+    if (!retryTarget) return;
+    const habit = habits.find((item) => item.id === retryTarget.habitId);
+    if (!habit) {
+      setRetryTarget(null);
+      return;
+    }
+    const current = entryMap.get(habit.id);
+    await updateEntry(habit, retryTarget.count, current);
   };
 
   const completedCount = dueHabits.filter((habit) => isEntryDone(entryMap.get(habit.id), habit)).length;
@@ -224,7 +285,21 @@ export default function TodayPage() {
         </div>
       </section>
 
-      {errorMessage && <p className="text-sm font-bold text-[#a33]">{errorMessage}</p>}
+      {errorMessage && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm font-bold text-[#a33]">{errorMessage}</p>
+          {retryTarget && (
+            <button
+              type="button"
+              onClick={() => void retryUpdate()}
+              disabled={busyHabitId !== null}
+              className="tap-active rounded-full border border-[#a33] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#a33] disabled:opacity-50"
+            >
+              再試行
+            </button>
+          )}
+        </div>
+      )}
 
       {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#888] sm:py-24 sm:text-xl">Nothing Scheduled</p>}
 

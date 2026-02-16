@@ -243,3 +243,26 @@
 
 ### 作業メモ
 - 詳細ステップは `STEP_USABILITY_PHASE_PLAN.md` を参照。
+
+## 16. 2026-02-16 追加追記（STEP 1 実装: Today 楽観更新 + 再試行導線）
+- 実施背景:
+  - ユーザー指示「HANDOFF と STEP に従って作業、HANDOFF更新」に基づき、STEP 1（Today体感改善）を先行実装。
+- 実施内容:
+  - `src/app/app/today/page.tsx` に楽観更新を追加。
+    - 書き込み前に `entries` state を先反映（count/completed）。
+    - 既存エントリ更新・未作成エントリ新規追加の両ケースを処理。
+  - 保存失敗時のロールバックを追加。
+    - 変更前エントリを保持し、失敗時は元状態へ復帰。
+    - もともと存在しないエントリに対する失敗時は楽観追加分を削除。
+  - 再試行導線を追加。
+    - 最後に失敗した `habitId/count` を `retryTarget` に保持。
+    - エラーメッセージ横に「再試行」ボタンを表示し、同じ更新を再実行可能化。
+  - 既存の `writeEntryWithCompat` 戦略は維持し、永続化ロジックは変更せずUX層のみ拡張。
+- テスト/ビルド:
+  - `npm test` pass（42 tests）
+  - `npm run build` pass
+- 補足:
+  - ブラウザスクリーンショット取得は Playwright 実行環境で Chromium が SIGSEGV となり取得不可（接続/起動系の環境制約）。
+- 次の一手:
+  1. Supabase接続環境で `/app/today` を手動確認（成功時の即時反映、失敗時のロールバック・再試行動作）。
+  2. STEP 2（Login/Nav導線改善）へ着手。
