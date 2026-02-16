@@ -100,20 +100,50 @@ export default function TodayPage() {
         return;
       }
 
-      const { error } = await supabase.from('entries').upsert(
-        {
-          user_id: user.id,
-          habit_id: habit.id,
-          date_key: today,
-          count,
-          completed: count >= habit.goal_count,
-        },
-        { onConflict: 'user_id,habit_id,date_key' }
-      );
+      const entryKey = {
+        user_id: user.id,
+        habit_id: habit.id,
+        date_key: today,
+      };
+      const entryValues = {
+        count,
+        completed: count >= habit.goal_count,
+      };
 
-      if (error) {
-        setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
-        return;
+      const { error: upsertError } = await supabase
+        .from('entries')
+        .upsert({ ...entryKey, ...entryValues }, { onConflict: 'user_id,habit_id,date_key' });
+
+      if (upsertError) {
+        const shouldFallbackToUpdateInsert =
+          upsertError.code === '42P10' || upsertError.message.includes('ON CONFLICT');
+
+        if (!shouldFallbackToUpdateInsert) {
+          setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+          return;
+        }
+
+        const { data: updatedRows, error: updateError } = await supabase
+          .from('entries')
+          .update(entryValues)
+          .eq('user_id', entryKey.user_id)
+          .eq('habit_id', entryKey.habit_id)
+          .eq('date_key', entryKey.date_key)
+          .select('habit_id');
+
+        if (updateError) {
+          setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+          return;
+        }
+
+        if ((updatedRows ?? []).length === 0) {
+          const { error: insertError } = await supabase.from('entries').insert({ ...entryKey, ...entryValues });
+
+          if (insertError) {
+            setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+            return;
+          }
+        }
       }
 
       await load();
