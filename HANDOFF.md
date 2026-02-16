@@ -187,3 +187,44 @@
 - 期待効果:
   - 新旧スキーマ差分（`entries.completed` 有無）が混在しても、Today タップで更新処理が通る可能性が大幅に向上。
   - `completed` 列がない旧環境では count ベースの判定ロジック（`isEntryDone`）で UI整合を維持可能。
+
+## 14. 2026-02-16 追加追記（再発対策としての大規模リファクタ）
+- 背景:
+  - 同種エラーが長期継続していたため、`Today` 画面内に分散していた `upsert/update/insert/retry` と
+    レガシースキーマ救済 (`completed` 列欠落) の分岐を、1か所で厳密に扱う必要があった。
+- 実施内容:
+  - `src/lib/supabase/entryWriteStrategy.ts` を新設し、`writeEntryWithCompat` を実装。
+    - 正常系: `upsert`。
+    - 互換フォールバック: `42P10` 検知時のみ `update -> insert -> duplicate時retry update`。
+    - レガシー列救済: `42703 + completed列欠落` のみ legacy payload（`count` のみ）へ再実行。
+    - 失敗時は `stage`（upsert/update/insert/retry-update）と `usedLegacyPayload` を返し、
+      呼び出し側で観測可能にした。
+  - `src/app/app/today/page.tsx` は書き込み処理を上記戦略へ委譲。
+    - 分岐の重複を除去し、エラー時ログに `stage` と `usedLegacyPayload` を含めて調査容易化。
+  - `src/lib/supabase/entryWriteStrategy.test.ts` を追加し、戦略の分岐をユニットテストで固定。
+    - primary upsert成功
+    - 42P10でのupdate/insertフォールバック成功
+    - duplicate(23505)時のretry-update成功
+    - completed列欠落時のlegacy payload切替成功
+    - primary/legacy両方失敗時にstage/flagが正しく返ること
+- 期待効果:
+  - 今後スキーマ差分や競合があっても、書き込み戦略の挙動をテストで保証しながら安全に改善可能。
+  - 「完了状態の更新に失敗しました」の再発時に、どの段階で失敗したかを即特定しやすくなる。
+
+## 15. 2026-02-16 追加追記（本番DB診断と解消完了）
+- 診断結果（ユーザー実行SQLの結果）:
+  - RLS は `entries/habits/user_settings` で有効（`rls_enabled = true`）。
+  - `entries` の複合主キー（`user_id, habit_id, date_key`）は存在。
+  - `entries` ポリシーも `auth.uid() = user_id` 系で整合。
+  - 一方で `entries.completed` 列が存在しないスキーマ差分を確認。
+- 根本原因:
+  - Today 更新時の標準ペイロードは `completed` を含むため、`entries.completed` 欠落環境では更新が失敗し続ける。
+- ユーザー側で実施した解消作業:
+  - `alter table public.entries add column if not exists completed boolean not null default false;`
+  - （必要に応じて）既存データ補正 `update public.entries set completed = (count >= 1) where completed is null;`
+- 結果:
+  - ユーザー報告ベースで「OK / うまくいきました」を確認。
+- 補足（任意の追加確認クエリ）:
+  - `entries` 列確認（`completed` が存在するか）
+  - `pg_policies` で `entries_*_own` の `qual/with_check` 確認
+  - 必要なら `date_key` 型差分（`date` vs `text`）の将来統一を検討
