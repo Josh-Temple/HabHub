@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { PostgrestError } from '@supabase/supabase-js';
-import { shouldFallbackEntryUpsert } from './entryWriteCompat';
+import { shouldFallbackEntryCompletedColumn, shouldFallbackEntryUpsert } from './entryWriteCompat';
 
 function createError(overrides: Partial<PostgrestError>): PostgrestError {
   return {
@@ -39,5 +39,41 @@ describe('shouldFallbackEntryUpsert', () => {
 
   test('returns false for generic ON CONFLICT errors without inference mismatch context', () => {
     expect(shouldFallbackEntryUpsert(createError({ message: 'ON CONFLICT DO UPDATE command cannot affect row a second time' }))).toBe(false);
+  });
+});
+
+
+describe('shouldFallbackEntryCompletedColumn', () => {
+  test('returns true for 42703 completed column missing error', () => {
+    expect(
+      shouldFallbackEntryCompletedColumn(
+        createError({
+          code: '42703',
+          message: 'column "completed" of relation "entries" does not exist',
+        })
+      )
+    ).toBe(true);
+  });
+
+  test('returns false for non-42703 errors', () => {
+    expect(
+      shouldFallbackEntryCompletedColumn(
+        createError({
+          code: '42P10',
+          message: 'column "completed" of relation "entries" does not exist',
+        })
+      )
+    ).toBe(false);
+  });
+
+  test('returns false for unrelated 42703 errors', () => {
+    expect(
+      shouldFallbackEntryCompletedColumn(
+        createError({
+          code: '42703',
+          message: 'column "note" of relation "entries" does not exist',
+        })
+      )
+    ).toBe(false);
   });
 });

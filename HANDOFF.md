@@ -170,3 +170,20 @@
     - `ON CONFLICT` のみの一般エラー（例: row a second time）ではフォールバックしないこと。
 - 期待効果:
   - 互換フォールバックの必要ケース（制約推論失敗）を維持しつつ、過検知による誤フォールバックを抑制。
+
+## 13. 2026-02-16 追加追記（今回の不具合再調査と修正）
+- ユーザー報告:
+  - Today でタスクをタップすると「完了状態の更新に失敗しました。時間をおいて再度お試しください。」が継続発生。
+- 深掘り結果:
+  - `entries` への保存ペイロードが `completed` 列前提になっている。
+  - ただし、古いスキーマ環境では `entries.completed` が未作成のケースがあり、Postgres `42703 (undefined_column)` で失敗する。
+  - 既存の互換フォールバックは `ON CONFLICT` 系（42P10）専用だったため、`completed` 列欠落ケースを救済できていなかった。
+- 今回の修正:
+  - `src/lib/supabase/entryWriteCompat.ts` に `shouldFallbackEntryCompletedColumn` を追加。
+    - `code=42703` かつ `column "completed" of relation "entries" does not exist` を厳密検知。
+  - `src/app/app/today/page.tsx` の更新経路（upsert/update/insert/retry-update）にレガシーフォールバックを追加。
+    - `completed` 列欠落時のみ `count` のみで再実行。
+  - `src/lib/supabase/entryWriteCompat.test.ts` に上記判定のテストを追加（true/false ケース）。
+- 期待効果:
+  - 新旧スキーマ差分（`entries.completed` 有無）が混在しても、Today タップで更新処理が通る可能性が大幅に向上。
+  - `completed` 列がない旧環境では count ベースの判定ロジック（`isEntryDone`）で UI整合を維持可能。
