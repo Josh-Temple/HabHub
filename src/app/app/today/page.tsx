@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
-import { shouldFallbackEntryUpsert } from '@/lib/supabase/entryWriteCompat';
+import { shouldFallbackEntryCompletedColumn, shouldFallbackEntryUpsert } from '@/lib/supabase/entryWriteCompat';
 import { toDateKey } from '@/lib/domain/date';
 import { isEntryDone, nextCountFromBump, nextCountFromToggle } from '@/lib/domain/entryProgress';
 import { isHabitDue } from '@/lib/domain/isHabitDue';
@@ -110,13 +110,38 @@ export default function TodayPage() {
         count,
         completed: count >= habit.goal_count,
       };
+      const entryValuesWithoutCompleted = {
+        count,
+      };
 
-      const { error: upsertError } = await supabase
+      const upsertEntry = (values: typeof entryValues | typeof entryValuesWithoutCompleted) => supabase
         .from('entries')
-        .upsert({ ...entryKey, ...entryValues }, { onConflict: 'user_id,habit_id,date_key' });
+        .upsert({ ...entryKey, ...values }, { onConflict: 'user_id,habit_id,date_key' });
+
+      const { error: upsertError } = await upsertEntry(entryValues);
 
       if (!upsertError) {
         await load();
+        return;
+      }
+
+      if (shouldFallbackEntryCompletedColumn(upsertError)) {
+        const { error: legacyUpsertError } = await upsertEntry(entryValuesWithoutCompleted);
+
+        if (!legacyUpsertError) {
+          await load();
+          return;
+        }
+
+        console.error('[today/updateEntry] failed to upsert entry without completed in legacy fallback', {
+          code: legacyUpsertError.code,
+          message: legacyUpsertError.message,
+          details: legacyUpsertError.details,
+          hint: legacyUpsertError.hint,
+          entryKey,
+          entryValues: entryValuesWithoutCompleted,
+        });
+        setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
         return;
       }
 
@@ -152,20 +177,53 @@ export default function TodayPage() {
         .select('habit_id');
 
       if (updateError) {
-        console.error('[today/updateEntry] failed to update entry in fallback', {
-          code: updateError.code,
-          message: updateError.message,
-          details: updateError.details,
-          hint: updateError.hint,
-          entryKey,
-          entryValues,
-        });
-        setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
-        return;
+        if (shouldFallbackEntryCompletedColumn(updateError)) {
+          const { data: legacyUpdatedRows, error: legacyUpdateError } = await supabase
+            .from('entries')
+            .update(entryValuesWithoutCompleted)
+            .eq('user_id', entryKey.user_id)
+            .eq('habit_id', entryKey.habit_id)
+            .eq('date_key', entryKey.date_key)
+            .select('habit_id');
+
+          if (legacyUpdateError) {
+            console.error('[today/updateEntry] failed to update entry without completed in legacy fallback', {
+              code: legacyUpdateError.code,
+              message: legacyUpdateError.message,
+              details: legacyUpdateError.details,
+              hint: legacyUpdateError.hint,
+              entryKey,
+              entryValues: entryValuesWithoutCompleted,
+            });
+            setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+            return;
+          }
+
+          if ((legacyUpdatedRows ?? []).length > 0) {
+            await load();
+            return;
+          }
+        } else {
+          console.error('[today/updateEntry] failed to update entry in fallback', {
+            code: updateError.code,
+            message: updateError.message,
+            details: updateError.details,
+            hint: updateError.hint,
+            entryKey,
+            entryValues,
+          });
+          setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+          return;
+        }
       }
 
       if ((updatedRows ?? []).length === 0) {
-        const { error: insertError } = await supabase.from('entries').insert({ ...entryKey, ...entryValues });
+        let { error: insertError } = await supabase.from('entries').insert({ ...entryKey, ...entryValues });
+
+        if (insertError && shouldFallbackEntryCompletedColumn(insertError)) {
+          const legacyInsertResult = await supabase.from('entries').insert({ ...entryKey, ...entryValuesWithoutCompleted });
+          insertError = legacyInsertResult.error;
+        }
 
         if (insertError) {
           const shouldRetryUpdate = insertError.code === '23505';
@@ -183,12 +241,22 @@ export default function TodayPage() {
             return;
           }
 
-          const { error: retryUpdateError } = await supabase
+          let { error: retryUpdateError } = await supabase
             .from('entries')
             .update(entryValues)
             .eq('user_id', entryKey.user_id)
             .eq('habit_id', entryKey.habit_id)
             .eq('date_key', entryKey.date_key);
+
+          if (retryUpdateError && shouldFallbackEntryCompletedColumn(retryUpdateError)) {
+            const legacyRetryResult = await supabase
+              .from('entries')
+              .update(entryValuesWithoutCompleted)
+              .eq('user_id', entryKey.user_id)
+              .eq('habit_id', entryKey.habit_id)
+              .eq('date_key', entryKey.date_key);
+            retryUpdateError = legacyRetryResult.error;
+          }
 
           if (retryUpdateError) {
             console.error('[today/updateEntry] failed to update entry after duplicate insert fallback', {
