@@ -110,36 +110,38 @@ export default function TodayPage() {
         completed: count >= habit.goal_count,
       };
 
-      const { error: upsertError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('entries')
-        .upsert({ ...entryKey, ...entryValues }, { onConflict: 'user_id,habit_id,date_key' });
+        .update(entryValues)
+        .eq('user_id', entryKey.user_id)
+        .eq('habit_id', entryKey.habit_id)
+        .eq('date_key', entryKey.date_key)
+        .select('habit_id');
 
-      if (upsertError) {
-        const shouldFallbackToUpdateInsert =
-          upsertError.code === '42P10' || upsertError.message.includes('ON CONFLICT');
+      if (updateError) {
+        setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+        return;
+      }
 
-        if (!shouldFallbackToUpdateInsert) {
-          setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
-          return;
-        }
+      if ((updatedRows ?? []).length === 0) {
+        const { error: insertError } = await supabase.from('entries').insert({ ...entryKey, ...entryValues });
 
-        const { data: updatedRows, error: updateError } = await supabase
-          .from('entries')
-          .update(entryValues)
-          .eq('user_id', entryKey.user_id)
-          .eq('habit_id', entryKey.habit_id)
-          .eq('date_key', entryKey.date_key)
-          .select('habit_id');
+        if (insertError) {
+          const shouldRetryUpdate = insertError.code === '23505';
 
-        if (updateError) {
-          setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
-          return;
-        }
+          if (!shouldRetryUpdate) {
+            setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+            return;
+          }
 
-        if ((updatedRows ?? []).length === 0) {
-          const { error: insertError } = await supabase.from('entries').insert({ ...entryKey, ...entryValues });
+          const { error: retryUpdateError } = await supabase
+            .from('entries')
+            .update(entryValues)
+            .eq('user_id', entryKey.user_id)
+            .eq('habit_id', entryKey.habit_id)
+            .eq('date_key', entryKey.date_key);
 
-          if (insertError) {
+          if (retryUpdateError) {
             setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
             return;
           }
