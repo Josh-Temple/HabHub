@@ -13,6 +13,7 @@ export type Habit = {
     targetIntervalCount?: number;
     targetDate?: string;
     interval?: 'week' | 'month';
+    accentColor?: string;
   };
   external_url: string | null;
   archived: boolean;
