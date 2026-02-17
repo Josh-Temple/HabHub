@@ -14,6 +14,13 @@ describe('validateImportPayload', () => {
     expect(result.errors).toContain('habits は配列である必要があります。');
   });
 
+  it('returns errors when array items are not objects', () => {
+    const result = validateImportPayload(JSON.stringify({ habits: [1], entries: ['x'] }));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('habits の各要素はオブジェクトである必要があります。');
+    expect(result.errors).toContain('entries の各要素はオブジェクトである必要があります。');
+  });
+
   it('returns parsed payload for valid shape', () => {
     const result = validateImportPayload(JSON.stringify({ habits: [], entries: [], user_settings: { week_start: 1 } }));
     expect(result.ok).toBe(true);

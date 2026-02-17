@@ -12,6 +12,12 @@ export type ImportValidationResult = {
   parsed?: ImportPayload;
 };
 
+const MAX_IMPORT_ITEMS = 10000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function validateImportPayload(rawPayload: string): ImportValidationResult {
   let parsedUnknown: unknown;
   try {
@@ -20,14 +26,14 @@ export function validateImportPayload(rawPayload: string): ImportValidationResul
     return { ok: false, errors: ['JSONの構文が不正です。'] };
   }
 
-  if (!parsedUnknown || typeof parsedUnknown !== 'object') {
+  if (!isRecord(parsedUnknown)) {
     return { ok: false, errors: ['JSONのトップレベルはオブジェクトである必要があります。'] };
   }
 
   const data = parsedUnknown as {
-    habits?: Habit[];
-    entries?: Entry[];
-    user_settings?: Partial<UserSettings>;
+    habits?: unknown;
+    entries?: unknown;
+    user_settings?: unknown;
   };
 
   const errors: string[] = [];
@@ -40,8 +46,24 @@ export function validateImportPayload(rawPayload: string): ImportValidationResul
     errors.push('entries は配列である必要があります。');
   }
 
-  if (data.user_settings && typeof data.user_settings !== 'object') {
+  if (data.user_settings !== undefined && !isRecord(data.user_settings)) {
     errors.push('user_settings はオブジェクトである必要があります。');
+  }
+
+  if (Array.isArray(data.habits) && data.habits.some((habit) => !isRecord(habit))) {
+    errors.push('habits の各要素はオブジェクトである必要があります。');
+  }
+
+  if (Array.isArray(data.entries) && data.entries.some((entry) => !isRecord(entry))) {
+    errors.push('entries の各要素はオブジェクトである必要があります。');
+  }
+
+  if (Array.isArray(data.habits) && data.habits.length > MAX_IMPORT_ITEMS) {
+    errors.push(`habits は ${MAX_IMPORT_ITEMS} 件以下にしてください。`);
+  }
+
+  if (Array.isArray(data.entries) && data.entries.length > MAX_IMPORT_ITEMS) {
+    errors.push(`entries は ${MAX_IMPORT_ITEMS} 件以下にしてください。`);
   }
 
   if (errors.length > 0) {
@@ -52,9 +74,9 @@ export function validateImportPayload(rawPayload: string): ImportValidationResul
     ok: true,
     errors: [],
     parsed: {
-      habits: data.habits ?? [],
-      entries: data.entries ?? [],
-      user_settings: data.user_settings,
+      habits: (data.habits ?? []) as Habit[],
+      entries: (data.entries ?? []) as Entry[],
+      user_settings: data.user_settings as Partial<UserSettings> | undefined,
     },
   };
 }
