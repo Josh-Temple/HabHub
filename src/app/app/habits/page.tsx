@@ -59,9 +59,12 @@ export default function HabitsPage() {
       {orderError && <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{orderError}</p>}
 
       <div className="space-y-3 sm:space-y-4">
-        {active.map((h, index) => (
-          <div key={h.id} className="flex items-center gap-3 rounded-3xl border border-[#ebebeb] bg-white p-3.5 sm:gap-4 sm:p-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5f5f7] text-xl sm:h-16 sm:w-16 sm:text-2xl">•</div>
+        {active.map((h, index) => {
+          const accentColor = h.schedule?.accentColor ?? '#111111';
+
+          return (
+            <div key={h.id} className="flex items-center gap-3 rounded-3xl border border-[#ebebeb] bg-white p-3.5 sm:gap-4 sm:p-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5f5f7] text-xl sm:h-16 sm:w-16 sm:text-2xl" style={{ color: accentColor }}>•</div>
             <div className="min-w-0 flex-1">
               <Link href={`/app/habits/${h.id}`} className="block truncate text-lg font-black tracking-tight sm:text-xl">{h.name}</Link>
               <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#b8b8be] sm:tracking-[0.35em]">{h.frequency.replace('_', ' ')} ・ {h.goal_count} time</p>
@@ -71,7 +74,8 @@ export default function HabitsPage() {
               <button disabled={isSavingOrder || index === active.length - 1} onClick={() => void move(h, 1)} className="tap-active rounded-xl py-1 text-[#888] disabled:cursor-not-allowed disabled:opacity-40">▼</button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       <p className="pt-6 text-center text-xs font-black uppercase tracking-[0.45em] text-[#ebebeb]">End of Inventory</p>
     </div>
