@@ -22,7 +22,7 @@ describe('validateImportPayload', () => {
   });
 
   it('returns parsed payload for valid shape', () => {
-    const result = validateImportPayload(JSON.stringify({ habits: [], entries: [], user_settings: { week_start: 1 } }));
+    const result = validateImportPayload(JSON.stringify({ habits: [], entries: [], user_settings: { week_start: 1, language: 'en' } }));
     expect(result.ok).toBe(true);
     expect(result.parsed?.habits).toEqual([]);
     expect(result.parsed?.entries).toEqual([]);

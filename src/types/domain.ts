@@ -32,5 +32,6 @@ export type Entry = {
 export type UserSettings = {
   user_id: string;
   week_start: number;
+  language: 'en' | 'ja';
   migration_done: boolean;
 };
