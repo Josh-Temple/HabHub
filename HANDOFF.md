@@ -288,3 +288,40 @@
 - 次の一手:
   1. STEP 3（Habit Form の整合性修正）に着手。
   2. Supabase接続環境で Login 実導線（送信→受信→callback→/app/today）を手動E2E確認。
+
+
+## 16. 2026-02-17 追加追記（STEP 3-5 完了）
+- STEP 3（Habit Form 整合性）
+  - `src/components/HabitForm.tsx` から未保存項目だった「Icon/Color Accent」UIとstateを撤去。
+  - 保存される項目のみを入力させる構成にし、「入力したのに保存されない」不整合を解消。
+- STEP 4（Habits 並び替え堅牢化）
+  - `src/app/app/habits/page.tsx` の並び替えを単純な `sort_order ±1` 更新から、
+    「隣接swap → 全件再採番（0始まり）」へ変更。
+  - 最上段/最下段ボタンを無効化し、保存中の再操作も抑止。
+  - 保存失敗時にエラーメッセージを表示。
+- STEP 5（Settings Import/Export 安全化）
+  - `src/lib/settings/importValidation.ts` を追加し、JSON構文/shape検証を共通化。
+  - `src/app/app/settings/page.tsx` に Dry Run（件数表示/エラー表示）と確認UIを追加。
+  - importの実行結果を `habits / entries / user_settings` 単位で表示し、失敗箇所を明示。
+- 追加テスト
+  - `src/lib/settings/importValidation.test.ts` を追加。
+  - `npm test` / `npm run build` は通過。
+
+### 残タスク
+- Supabase接続環境での手動E2E（Today/Habits/Settings）最終確認のみ。
+
+
+## 17. 2026-02-17 追加追記（STEP 3-5 実装の再点検とリファクタ）
+- 背景:
+  - 直前コミット（Codex-generated pull request）の品質再点検依頼に対応。
+- 実施内容:
+  - `src/lib/habits/reorder.ts` を追加し、Habits並び替えの「swap + 再採番」計算を純粋関数として分離。
+  - `src/app/app/habits/page.tsx` は上記関数を利用する構成へ変更し、保存中フラグの解除を `finally` で保証。
+  - `src/app/app/settings/page.tsx` の import 実行処理を整理（結果整形関数/ステータス変換関数を導入）。
+  - payload未入力時は Dry Run を表示しないようにして、初期表示時の不要なエラー表示を抑制。
+  - `src/lib/habits/reorder.test.ts` を追加し、並び替え計算の境界条件を固定。
+- テスト結果:
+  - `npm test` pass（7 files, 47 tests）
+  - `npm run build` pass
+- 現在の残タスク:
+  - Supabase接続環境での手動E2E（Today/Habits/Settings）最終確認。
