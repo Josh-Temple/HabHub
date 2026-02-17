@@ -40,6 +40,7 @@ export default function TodayPage() {
   const [busyHabitId, setBusyHabitId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [retryTarget, setRetryTarget] = useState<{ habitId: string; count: number } | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
   const today = toDateKey(new Date());
 
   const entryMap = useMemo(
@@ -84,8 +85,13 @@ export default function TodayPage() {
   }, []);
 
   const dueHabits = useMemo(() => habits.filter((habit) => isHabitDue(habit, today, entries, settings)), [habits, entries, settings, today]);
-  const routineHabits = dueHabits.filter((habit) => habit.frequency !== 'once');
-  const oneOffHabits = dueHabits.filter((habit) => habit.frequency === 'once');
+  const activeDueHabits = dueHabits.filter((habit) => !isEntryDone(entryMap.get(habit.id), habit));
+  const completedDueHabits = dueHabits.filter((habit) => isEntryDone(entryMap.get(habit.id), habit));
+
+  const routineHabits = activeDueHabits.filter((habit) => habit.frequency !== 'once');
+  const oneOffHabits = activeDueHabits.filter((habit) => habit.frequency === 'once');
+  const completedRoutineHabits = completedDueHabits.filter((habit) => habit.frequency !== 'once');
+  const completedOneOffHabits = completedDueHabits.filter((habit) => habit.frequency === 'once');
 
   const applyOptimisticEntry = (habit: Habit, count: number) => {
     setEntries((previousEntries) => {
@@ -315,6 +321,37 @@ export default function TodayPage() {
         <section>
           <p className="micro-label">One-off Tasks</p>
           <div className="mt-2 sm:mt-3">{oneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
+        </section>
+      )}
+
+      {completedDueHabits.length > 0 && (
+        <section>
+          <button
+            type="button"
+            onClick={() => setShowCompleted((prev) => !prev)}
+            className="tap-active micro-label flex items-center gap-2 text-left"
+          >
+            <span>Completed ({String(completedDueHabits.length).padStart(2, '0')})</span>
+            <span className="text-xs text-[#888]">{showCompleted ? 'Hide' : 'Show'}</span>
+          </button>
+
+          {showCompleted && (
+            <div className="mt-2 space-y-6 sm:mt-3">
+              {completedRoutineHabits.length > 0 && (
+                <div>
+                  <p className="micro-label text-[#888]">Routine</p>
+                  <div className="mt-2 sm:mt-3">{completedRoutineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
+                </div>
+              )}
+
+              {completedOneOffHabits.length > 0 && (
+                <div>
+                  <p className="micro-label text-[#888]">One-off Tasks</p>
+                  <div className="mt-2 sm:mt-3">{completedOneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       )}
     </div>
