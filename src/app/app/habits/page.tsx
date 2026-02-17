@@ -63,9 +63,9 @@ export default function HabitsPage() {
   return (
     <div className="space-y-6 sm:space-y-7">
       <section>
-        <p className="micro-label">Management</p>
+        <p className="micro-label">管理</p>
         <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">
-          Inventory
+          習慣一覧
         </h1>
       </section>
 
@@ -129,7 +129,7 @@ export default function HabitsPage() {
       </div>
 
       <p className="pt-6 text-center text-xs font-black uppercase tracking-[0.45em] text-[#ebebeb]">
-        End of Inventory
+        一覧の終わり
       </p>
     </div>
   );

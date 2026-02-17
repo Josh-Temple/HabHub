@@ -7,7 +7,7 @@ import { Entry, Habit } from '@/types/domain';
 
 const tones = ['#eef0f4', '#d7dce4', '#b2bac8', '#7d8798', '#000000'];
 
-export default function AnalysisPage() {
+export default function 分析Page() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
 
@@ -39,28 +39,28 @@ export default function AnalysisPage() {
   return (
     <div className="space-y-7 sm:space-y-9">
       <section>
-        <p className="micro-label">Deep Insights</p>
-        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">Analysis</h1>
+        <p className="micro-label">分析インサイト</p>
+        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">分析</h1>
       </section>
 
       <section className="flex items-end justify-between gap-5 border-b border-[#ebebeb] pb-7 sm:pb-9">
         <div>
           <p className="text-5xl font-black leading-none tracking-tight sm:text-7xl">{c}%</p>
-          <p className="micro-label mt-4">Consistency (30d)</p>
+          <p className="micro-label mt-4">継続率 (30日)</p>
         </div>
         <div className="text-right">
           <p className="text-5xl font-black leading-none tracking-tight sm:text-7xl">{streak}</p>
-          <p className="micro-label mt-4">Day Streak</p>
+          <p className="micro-label mt-4">連続日数</p>
         </div>
       </section>
 
       <section className="rounded-3xl border border-[#ebebeb] p-4 sm:p-8">
         <div className="mb-4 flex items-end justify-between sm:mb-6">
           <div>
-            <p className="micro-label text-[#888]">Activity Map</p>
-            <p className="text-2xl font-black tracking-tight sm:text-4xl">Momentum</p>
+            <p className="micro-label text-[#888]">活動マップ</p>
+            <p className="text-2xl font-black tracking-tight sm:text-4xl">モメンタム</p>
           </div>
-          <p className="micro-label text-[#b8b8be]">120d History</p>
+          <p className="micro-label text-[#b8b8be]">120日履歴</p>
         </div>
         <div className="grid grid-flow-col grid-rows-7 gap-1.5 sm:gap-2">
           {heat.map((level, idx) => (
@@ -69,12 +69,12 @@ export default function AnalysisPage() {
         </div>
         <div className="mt-6 flex items-center justify-center gap-2 border-t border-[#ebebeb] pt-5 sm:mt-8 sm:gap-3 sm:pt-6">
           {tones.map((tone) => <span key={tone} className="h-3.5 w-3.5 rounded-[4px] sm:h-4 sm:w-4" style={{ backgroundColor: tone }} />)}
-          <span className="ml-3 micro-label text-[#888]">Peak</span>
+          <span className="ml-3 micro-label text-[#888]">高</span>
         </div>
       </section>
 
       <section>
-        <p className="micro-label mb-3">Last 7 Days</p>
+        <p className="micro-label mb-3">直近7日</p>
         <div className="flex h-28 items-end gap-2 sm:h-32 sm:gap-3">
           {bars.map((b) => (
             <div key={b.date} className="group flex-1 text-center">

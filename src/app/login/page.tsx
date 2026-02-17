@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 
-export default function LoginPage() {
+export default function ログインPage() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [sentTo, setSentTo] = useState('');
@@ -48,7 +48,7 @@ export default function LoginPage() {
 
   return (
     <form onSubmit={onSubmit} className="max-w-md space-y-3">
-      <h1 className="text-xl font-semibold">Login</h1>
+      <h1 className="text-xl font-semibold">ログイン</h1>
       <p className="text-sm text-gray-600">このアプリはパスワードの代わりに Magic Link でログインします。</p>
       <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="w-full" />
       <button type="submit" disabled={isSubmitting}>{isSubmitting ? '送信中...' : 'ログインリンクを送信'}</button>
