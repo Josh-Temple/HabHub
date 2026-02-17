@@ -1,361 +1,132 @@
-# 1. 現在のゴール / Doneの定義
-- ゴール: 「Today画面でタスクをタップしても完了登録できない（無反応）」問題の最終解消、および周辺機能の安定化・リファクタリング内容を次セッションで迷わず継続できる状態にする。
-- Doneの定義:
-  - [ ] 実機/ブラウザ上で Today 画面の「加算タップ」「完了トグル」が確実にDB反映される（RLS下でも失敗しない）。
-  - [ ] 回帰確認（追加・編集・表示・分析・設定）が完了し、主要導線でエラーがない。
-  - [ ] 未解決のレビュー指摘（inline comment）が0件であることを確認済み。
-  - [ ] PR説明とテスト結果が最新状態に整合している。
+# HANDOFF（更新版）
 
-# 2. ここまでにやったこと（箇条書き、重要なコミット/PRがあればID）
-- Today画面の entries upsert に `user_id` を明示して、RLSで書き込み拒否される可能性を低減する修正を実施。
-- Today画面の進捗判定/トグル/加算ロジックをドメイン関数へ分離してリファクタリング。
-- ドメイン関数のユニットテストを追加。
-- 直近主要コミット:
-  - `5245857` Fix Today task completion (RLS-safe upsert) and refactor entry progress
-  - `7dbb833` Fix legacy habits title NOT NULL insert failure
-  - `8a8e313` Fix habit creation RLS by attaching authenticated user_id
-- 直近PRタイトル（前セッション情報）:
-  - `Fix Today task completion (RLS-safe upsert) and refactor entry progress`
+最終更新: 2026-02-17
 
-# 3. 変更した主要ファイル（パス + 変更概要 + 影響範囲）
-- `src/app/app/today/page.tsx`
-  - 変更概要:
-    - `updateEntry` 経由で更新処理を集約。
-    - `supabase.auth.getUser()` で取得した `user_id` を `entries` upsert payload に含める。
-    - `busyHabitId` による行単位の二重操作防止。
-    - エラーメッセージ表示を追加。
-    - `entryMap` を導入して lookup を簡素化。
-  - 影響範囲:
-    - Today画面の完了トグル・カウント加算操作。
-    - 体感レスポンス（操作中ボタン無効化）とエラー表示UX。
-- `src/lib/domain/entryProgress.ts`
-  - 変更概要:
-    - `isEntryDone`, `nextCountFromBump`, `nextCountFromToggle` を新規追加。
-  - 影響範囲:
-    - Today画面内の進捗判定とトグル計算ロジック。
-- `src/lib/domain/entryProgress.test.ts`
-  - 変更概要:
-    - 上記ドメイン関数のテストを追加。
-  - 影響範囲:
-    - 進捗ロジックの回帰検知。
-
-# 4. 現在の状態（動く/動かない、どこが壊れているか）
-- 動く:
-  - `npm test` は全件 pass。
-  - `npm run build` は成功。
-- 要確認/不明:
-  - 前回PRの「inline comments」がこの環境からは参照できず、未対応項目の有無が **不明**。
-    - 確認方法: GitHub PR画面で Files changed のコメントスレッドを確認し、未解決コメント一覧を抽出。
-  - 実DB接続でのタップ反映（Supabase本番/検証環境）結果は、この環境では env 未設定のため **不明**。
-    - 確認方法: `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` を設定して `/app/today` で手動操作。
-
-# 5. 再現手順（コマンド、入力例、期待結果、実結果、ログ場所）
-## 5-1. 既知不具合（過去）再現手順
-- 目的: 旧実装で「タップ無反応」を再現するための手順（参考）。
-- 手順:
-  1. Supabase env を設定してアプリ起動。
-  2. `/app/today` を開く。
-  3. 任意タスクの完了リングをタップ。
-- 期待結果:
-  - `entries` に `(user_id, habit_id, date_key)` 行が upsert され、UIが即時更新。
-- 過去の実結果:
-  - `user_id` 未指定によりRLSで拒否され、UI上「無反応」に見えるケース。
-
-## 5-2. 現在実装の確認手順（推奨）
-- コマンド:
-  - `npm install`
-  - `npm run dev -- --hostname 0.0.0.0 --port 4173`
-- 入力例/操作:
-  - `/app/today` でタスク名をタップ（+1）
-  - 完了リングをタップ（完了⇄未完了）
-- 期待結果:
-  - ボタンは更新中に一時無効化される。
-  - DB更新成功時に count/completed が反映される。
-  - 失敗時は画面上にエラーメッセージが表示される。
-- 実結果（この環境）:
-  - env 未設定時は「Supabase environment variables are missing...」のためDB実動確認は未完了（不明）。
-- ログ場所:
-  - 開発サーバ標準出力（ターミナル）。
-  - ビルドログ標準出力（ターミナル）。
-
-# 6. テスト状況（実行したテスト、結果、未実施のテスト）
-- 実行済み:
-  - `npm test` → PASS（3 files, 29 tests）
-  - `npm run build` → PASS
-- 未実施:
-  - Supabase実環境接続でのE2E操作確認（Todayトグル・加算の実データ反映）。
-  - 主要導線のフル回帰（Habits作成/編集、Settings import/export、Analysis表示）手動テスト。
-
-# 7. 未解決タスク（優先度順、次の一手を“具体的な手順”で）
-1. **最優先: PR inline comment の未解決項目を全消化**（不明事項の解消）
-   - 手順:
-     1. GitHub の対象PRを開く。
-     2. Files changed の未解決コメントを列挙。
-     3. コメント単位で修正 or 返信（対応不要なら根拠付きで解決）。
-     4. 必要なら追加コミット。
-2. **Supabase接続で Today タップ動作を実証**
-   - 手順:
-     1. `.env.local` に `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` を設定。
-     2. `npm run dev -- --hostname 0.0.0.0 --port 4173` で起動。
-     3. `/app/today` で加算/トグルを操作。
-     4. Supabase側の `entries` レコード変化を確認。
-3. **回帰テスト拡張（必要なら）**
-   - 手順:
-     1. Today更新失敗時のUI表示をテストしやすい形へ分離。
-     2. ユニット/コンポーネントテスト追加。
-
-# 8. 重要な意思決定ログ（採用案/却下案と理由、トレードオフ）
-- 採用案: `entries` upsert payload に `user_id` を明示。
-  - 理由: RLSポリシーが `auth.uid() = user_id` を要求するため。
-  - トレードオフ: 毎回 `auth.getUser()` 呼び出しが増えるが、整合性優先。
-- 採用案: Today内ロジックを `entryProgress.ts` に抽出。
-  - 理由: UIから業務ロジックを分離してテスト容易性を上げるため。
-  - トレードオフ: ファイル数は増えるが可読性と再利用性を優先。
-- 採用案: 更新中ボタンを無効化。
-  - 理由: 連打による競合・二重送信を抑止。
-  - トレードオフ: 体感操作性は僅かに制限されるが、一貫性向上。
-
-# 9. 環境・設定メモ（env、API keyの名前、URL設定、バージョン）
-- 実行環境:
-  - Node/npm（npm実行時の警告あり: `Unknown env config "http-proxy"`）
-  - Next.js `15.5.12`
-  - Vitest `3.2.4`
-- 必須env（未設定だとSupabase接続不可）:
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- ローカル起動URL例:
-  - `http://localhost:4173/app/today`
-- 補足:
-  - build時に `Supabase environment variables are missing...` が出るが、ビルド自体は通る（limited mode）。
-
-# 10. 次セッション開始時のチェックリスト（5〜10項目）
-- [ ] `git status` がクリーンか確認。
-- [ ] 対象PRの未解決 inline comments を確認。
-- [ ] `.env.local` に Supabase の2変数が入っているか確認。
-- [ ] `npm install` 実行。
-- [ ] `npm test` 実行。
-- [ ] `npm run dev -- --hostname 0.0.0.0 --port 4173` で起動。
-- [ ] `/app/today` で加算・トグルを手動確認。
-- [ ] Supabase `entries` テーブルで書き込み結果を照合。
-- [ ] 必要なら修正→再テスト→コミット→PR更新。
+## 1. 目的（このドキュメントの使い方）
+- 次担当が **迷わず次アクションに着手** できるように、現状・未完了・確認手順を一本化する。
+- 過去の作業履歴は要点のみ残し、重複記述は整理した。
 
 ---
-次に着手するタスクはこれ: **対象PRの未解決 inline comments を特定し、コメント単位で修正または解決返信を完了する。**
 
+## 2. 現在のゴール / Done 定義
+### ゴール
+Today 画面の「タップしても完了登録できない（無反応）」問題の再発を防ぎつつ、
+最近追加した UX/整合性改善（Login/Nav, Habits並び替え, Settings Import/Export, 色アクセント反映）を
+実運用相当で検証完了する。
 
-## 11. 2026-02-16 追記（今回の追加調査・修正）
-- 症状:
-  - Today の完了更新で「完了状態の更新に失敗しました。時間をおいて再度お試しください。」が出るケースが継続。
-- 原因分析:
-  - 直近の atomic upsert 化で、`entries` テーブルに `ON CONFLICT` 対象制約が存在しない環境（過去スキーマ差分）だと `42P10` で失敗し、フォールバックが無くなっていた。
-  - そのため、以前は救えていた環境差分ケースで即失敗になっていた。
-- 今回の対応:
-  - 通常は atomic `upsert` を維持。
-  - `42P10` / `ON CONFLICT` 系エラー時のみ、互換フォールバック（`update -> insert -> duplicate時retry update`）を復活。
-  - 失敗時ログを upsert/fallback それぞれで構造化出力して、運用時に原因追跡可能にした。
-- 期待効果:
-  - 新旧スキーマ差分のある環境でも Today タップ更新が成功しやすくなり、回帰耐性が向上。
+### Done
+- [ ] Supabase 接続環境で Today の「+1」「完了トグル」が DB に反映される（RLS下でも成功）。
+- [ ] Habits / Settings / Login を含む主要導線の手動回帰が完了。
+- [ ] 対象PRの未解決 inline comment が 0 件。
+- [ ] PR説明（変更点・テスト結果）が最新実装と一致。
 
-## 12. 2026-02-16 追加追記（レビュー反映）
-- 背景:
-  - `shouldFallbackEntryUpsert` の初版は `ON CONFLICT` 文言だけでもフォールバックを許容する判定があり、
-    将来的に別系統の `ON CONFLICT` エラーを互換フォールバックへ誤ルーティングする余地があった。
-- 対応:
-  - フォールバック判定を厳格化。
-    - `code === 42P10` は従来どおり即フォールバック。
-    - それ以外は、`ON CONFLICT` 文言 **かつ** `no unique or exclusion constraint matching` 系文言の
-      両方を満たす場合のみフォールバック。
-  - 判定ロジックのテストを強化し、以下を追加確認。
-    - details/hint にまたがる文言でも検知できること。
-    - `ON CONFLICT` のみの一般エラー（例: row a second time）ではフォールバックしないこと。
-- 期待効果:
-  - 互換フォールバックの必要ケース（制約推論失敗）を維持しつつ、過検知による誤フォールバックを抑制。
+---
 
-## 13. 2026-02-16 追加追記（今回の不具合再調査と修正）
-- ユーザー報告:
-  - Today でタスクをタップすると「完了状態の更新に失敗しました。時間をおいて再度お試しください。」が継続発生。
-- 深掘り結果:
-  - `entries` への保存ペイロードが `completed` 列前提になっている。
-  - ただし、古いスキーマ環境では `entries.completed` が未作成のケースがあり、Postgres `42703 (undefined_column)` で失敗する。
-  - 既存の互換フォールバックは `ON CONFLICT` 系（42P10）専用だったため、`completed` 列欠落ケースを救済できていなかった。
-- 今回の修正:
-  - `src/lib/supabase/entryWriteCompat.ts` に `shouldFallbackEntryCompletedColumn` を追加。
-    - `code=42703` かつ `column "completed" of relation "entries" does not exist` を厳密検知。
-  - `src/app/app/today/page.tsx` の更新経路（upsert/update/insert/retry-update）にレガシーフォールバックを追加。
-    - `completed` 列欠落時のみ `count` のみで再実行。
-  - `src/lib/supabase/entryWriteCompat.test.ts` に上記判定のテストを追加（true/false ケース）。
-- 期待効果:
-  - 新旧スキーマ差分（`entries.completed` 有無）が混在しても、Today タップで更新処理が通る可能性が大幅に向上。
-  - `completed` 列がない旧環境では count ベースの判定ロジック（`isEntryDone`）で UI整合を維持可能。
+## 3. ここまでの実装サマリ（重複整理済み）
+### A. Today 更新失敗まわり（根本対応）
+- `entries` 書き込みを互換戦略化。
+  - 通常: upsert
+  - 互換: `42P10`（制約推論失敗）時に `update -> insert -> duplicate時retry update`
+  - 旧スキーマ救済: `42703` + `completed` 列欠落時は legacy payload（countのみ）
+- 進捗ロジックをドメイン関数化し、テスト追加。
+- UI面で以下を追加:
+  - 楽観更新
+  - 失敗時ロールバック
+  - 再試行導線（retry）
+  - 操作中無効化・エラーメッセージ表示
 
-## 14. 2026-02-16 追加追記（再発対策としての大規模リファクタ）
-- 背景:
-  - 同種エラーが長期継続していたため、`Today` 画面内に分散していた `upsert/update/insert/retry` と
-    レガシースキーマ救済 (`completed` 列欠落) の分岐を、1か所で厳密に扱う必要があった。
-- 実施内容:
-  - `src/lib/supabase/entryWriteStrategy.ts` を新設し、`writeEntryWithCompat` を実装。
-    - 正常系: `upsert`。
-    - 互換フォールバック: `42P10` 検知時のみ `update -> insert -> duplicate時retry update`。
-    - レガシー列救済: `42703 + completed列欠落` のみ legacy payload（`count` のみ）へ再実行。
-    - 失敗時は `stage`（upsert/update/insert/retry-update）と `usedLegacyPayload` を返し、
-      呼び出し側で観測可能にした。
-  - `src/app/app/today/page.tsx` は書き込み処理を上記戦略へ委譲。
-    - 分岐の重複を除去し、エラー時ログに `stage` と `usedLegacyPayload` を含めて調査容易化。
-  - `src/lib/supabase/entryWriteStrategy.test.ts` を追加し、戦略の分岐をユニットテストで固定。
-    - primary upsert成功
-    - 42P10でのupdate/insertフォールバック成功
-    - duplicate(23505)時のretry-update成功
-    - completed列欠落時のlegacy payload切替成功
-    - primary/legacy両方失敗時にstage/flagが正しく返ること
-- 期待効果:
-  - 今後スキーマ差分や競合があっても、書き込み戦略の挙動をテストで保証しながら安全に改善可能。
-  - 「完了状態の更新に失敗しました」の再発時に、どの段階で失敗したかを即特定しやすくなる。
+### B. 導線/UX 改善
+- Login
+  - Magic Link送信処理を共通化
+  - 再送ボタン、送信先/送信時刻表示、次アクションの案内を追加
+- App Nav
+  - アイコンのみから「アイコン + ラベル」常時表示へ
 
-## 15. 2026-02-16 追加追記（次フェーズ実装計画: 分析深掘り以外）
-- ユーザー要望:
-  - 直近提案した改善案のうち「4) 分析画面を習慣ごとに掘る」を除く項目を段階実装したい。
-  - 一気に実装して詰まるリスクを避けるため、まず HANDOFF と STEP を整備してから着手する。
+### C. データ整合性/安全性改善
+- Habits 並び替え
+  - swap + 全件再採番へ変更
+  - 境界ボタン無効化、保存中の再操作抑止
+  - 純粋関数 `reorder` を分離してテスト追加
+- Settings Import/Export
+  - JSON/shape検証を共通化
+  - Dry Run + 確認ステップ + 結果表示（habits/entries/user_settings単位）
 
-### 対象スコープ（今回の実装対象）
-1. Today 画面: 楽観更新 + 失敗時の再試行導線（UX改善）
-2. Habits 一覧: 並び替え処理の整合性改善（競合/順序崩れ対策）
-3. Habit Form: アイコン/色の扱い統一（保存 or UI削除の意思決定と反映）
-4. Settings: Import/Export の安全化（事前検証、確認ステップ、失敗理由の可視化）
-5. App Nav: 初見向けラベル補助（常時ラベル or 初回ヘルプ）
-6. Login: Magic Link送信後の導線明確化（再送・案内文強化）
+### D. 色アクセント機能
+- HabitForm に Color Accent（8色）を復活
+- `schedule.accentColor` を保存
+- Today/Habits のドット・リング色へ反映
 
-### 非対象（今回除外）
-- Analysis 画面の習慣別深掘り（別タスクとして切り出し）
+---
 
-### 実装順（詰まりにくさ優先）
-- Step 1: Today 画面（楽観更新 + 再試行）
-- Step 2: Login / App Nav（導線改善）
-- Step 3: Habit Form（項目整合）
-- Step 4: Habits 並び替え（順序整合）
-- Step 5: Settings Import/Export 安全化
+## 4. 直近の重要コミット（参照用）
+- `5245857` Fix Today task completion (RLS-safe upsert) and refactor entry progress
+- `7dbb833` Fix legacy habits title NOT NULL insert failure
+- `8a8e313` Fix habit creation RLS by attaching authenticated user_id
+- `6cc5de0` Inventory ドット色のアクセント反映
 
-### 受け入れ基準（抜粋）
-- Today: タップ時に即時UI反映され、失敗時は状態ロールバックと再試行導線がある。
-- Habit Form: ユーザーが操作可能な項目は保存されるか、未対応ならUIから除外される。
-- Habits: 並び替え後に順序重複/逆転が発生しない。
-- Settings: インポート前に検証結果が見え、誤操作防止の確認ステップがある。
-- Login/Nav: 初見ユーザーが次アクションに迷わない。
+※ これ以降にも修正が積み上がっているため、実際の検証対象は **現HEAD基準** で確認すること。
 
-### 作業メモ
-- 詳細ステップは `STEP_USABILITY_PHASE_PLAN.md` を参照。
+---
 
-## 16. 2026-02-16 追加追記（STEP 1 実装: Today 楽観更新 + 再試行導線）
-- 実施背景:
-  - ユーザー指示「HANDOFF と STEP に従って作業、HANDOFF更新」に基づき、STEP 1（Today体感改善）を先行実装。
-- 実施内容:
-  - `src/app/app/today/page.tsx` に楽観更新を追加。
-    - 書き込み前に `entries` state を先反映（count/completed）。
-    - 既存エントリ更新・未作成エントリ新規追加の両ケースを処理。
-  - 保存失敗時のロールバックを追加。
-    - 変更前エントリを保持し、失敗時は元状態へ復帰。
-    - もともと存在しないエントリに対する失敗時は楽観追加分を削除。
-  - 再試行導線を追加。
-    - 最後に失敗した `habitId/count` を `retryTarget` に保持。
-    - エラーメッセージ横に「再試行」ボタンを表示し、同じ更新を再実行可能化。
-  - 既存の `writeEntryWithCompat` 戦略は維持し、永続化ロジックは変更せずUX層のみ拡張。
-- テスト/ビルド:
-  - `npm test` pass（42 tests）
-  - `npm run build` pass
-- 補足:
-  - ブラウザスクリーンショット取得は Playwright 実行環境で Chromium が SIGSEGV となり取得不可（接続/起動系の環境制約）。
-- 次の一手:
-  1. Supabase接続環境で `/app/today` を手動確認（成功時の即時反映、失敗時のロールバック・再試行動作）。
-  2. STEP 2（Login/Nav導線改善）へ着手。
+## 5. 現在の状態（2026-02-17時点）
+### 自動テスト/ビルド
+- `npm test`: PASS（最新記録では 7 files, 47 tests）
+- `npm run build`: PASS
 
-## 17. 2026-02-16 追加追記（STEP 2 実装: Login / Nav 導線改善）
-- 実施背景:
-  - ユーザー指示「HANDOFFとSTEPに従って作業」に基づき、STEP 2（Login / App Nav 導線改善）を実装。
-- 実施内容:
-  - `src/app/login/page.tsx`
-    - Magic Link送信処理を `sendMagicLink` に集約し、通常送信と再送で共通化。
-    - 送信成功時に「送信先メールアドレス」「送信時刻」を表示。
-    - 受信確認の次アクション（受信トレイ確認 / 迷惑メール確認 / リンク遷移）を手順として明示。
-    - 「同じメールアドレスに再送」ボタンを追加。
-    - `mailto:` リンクでメールアプリを開く補助導線を追加。
-  - `src/components/AppNav.tsx`
-    - 既存のアイコンのみナビを、常時「アイコン + ラベル」表示へ変更。
-    - ラベルは `Today / Add / Analysis / Habits` に統一。
-- テスト/ビルド:
-  - `npm test` pass（5 files, 42 tests）
-  - `npm run build` pass
-- スクリーンショット:
-  - `/login` 画面で送信後UIを取得: `browser:/tmp/codex_browser_invocations/50a4acb6abcd3c1f/artifacts/artifacts/login-nav-step2.png`
-- 次の一手:
-  1. STEP 3（Habit Form の整合性修正）に着手。
-  2. Supabase接続環境で Login 実導線（送信→受信→callback→/app/today）を手動E2E確認。
+### 未確認（＝残タスク）
+- Supabase 実接続での手動E2E（Today/Habits/Settings/Login）
+- GitHub PR の inline comment 未解決有無
 
+### 既知の注意点
+- 旧スキーマ（`entries.completed` 未作成）でも動くよう互換処理は入れているが、
+  **本番相当データでの動作確認は未完了**。
+- `src/app/app/habits/page.tsx` は過去レビューで JSX 可読性の指摘あり（機能影響は軽微）。
 
-## 16. 2026-02-17 追加追記（STEP 3-5 完了）
-- STEP 3（Habit Form 整合性）
-  - `src/components/HabitForm.tsx` から未保存項目だった「Icon/Color Accent」UIとstateを撤去。
-  - 保存される項目のみを入力させる構成にし、「入力したのに保存されない」不整合を解消。
-- STEP 4（Habits 並び替え堅牢化）
-  - `src/app/app/habits/page.tsx` の並び替えを単純な `sort_order ±1` 更新から、
-    「隣接swap → 全件再採番（0始まり）」へ変更。
-  - 最上段/最下段ボタンを無効化し、保存中の再操作も抑止。
-  - 保存失敗時にエラーメッセージを表示。
-- STEP 5（Settings Import/Export 安全化）
-  - `src/lib/settings/importValidation.ts` を追加し、JSON構文/shape検証を共通化。
-  - `src/app/app/settings/page.tsx` に Dry Run（件数表示/エラー表示）と確認UIを追加。
-  - importの実行結果を `habits / entries / user_settings` 単位で表示し、失敗箇所を明示。
-- 追加テスト
-  - `src/lib/settings/importValidation.test.ts` を追加。
-  - `npm test` / `npm run build` は通過。
+---
 
-### 残タスク
-- Supabase接続環境での手動E2E（Today/Habits/Settings）最終確認のみ。
+## 6. 次担当の実行手順（この順で実施推奨）
 
+### Step 1: 環境準備
+1. `.env.local` に以下を設定
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+2. 起動
+   - `npm install`
+   - `npm run dev -- --hostname 0.0.0.0 --port 4173`
 
-## 17. 2026-02-17 追加追記（STEP 3-5 実装の再点検とリファクタ）
-- 背景:
-  - 直前コミット（Codex-generated pull request）の品質再点検依頼に対応。
-- 実施内容:
-  - `src/lib/habits/reorder.ts` を追加し、Habits並び替えの「swap + 再採番」計算を純粋関数として分離。
-  - `src/app/app/habits/page.tsx` は上記関数を利用する構成へ変更し、保存中フラグの解除を `finally` で保証。
-  - `src/app/app/settings/page.tsx` の import 実行処理を整理（結果整形関数/ステータス変換関数を導入）。
-  - payload未入力時は Dry Run を表示しないようにして、初期表示時の不要なエラー表示を抑制。
-  - `src/lib/habits/reorder.test.ts` を追加し、並び替え計算の境界条件を固定。
-- テスト結果:
-  - `npm test` pass（7 files, 47 tests）
-  - `npm run build` pass
-- 現在の残タスク:
-  - Supabase接続環境での手動E2E（Today/Habits/Settings）最終確認。
+### Step 2: Today 動作確認（最優先）
+1. `/app/today` を開く
+2. 任意習慣で以下を実施
+   - タスク名タップ（+1）
+   - 完了リングトグル（完了⇄未完了）
+3. 期待結果
+   - 即時UI反映（楽観更新）
+   - 失敗時ロールバック + 再試行ボタン表示
+   - 成功時に Supabase `entries` が更新
 
-## 17. 2026-02-17 追加追記（タスク色アクセントの復活）
-- 背景:
-  - ユーザー要望「タスク作成時に色を選べる機能を復活し、Today のドットと完了サークルに反映したい」。
-- 実施内容:
-  - `src/components/HabitForm.tsx`
-    - Color Accent パレットUIを再追加（8色）。
-    - 選択色を `schedule.accentColor` として保存するように変更。
-    - 既存タスク編集時は `initial.schedule?.accentColor` を初期値に反映。
-  - `src/types/domain.ts`
-    - `Habit.schedule` に `accentColor?: string` を追加。
-  - `src/app/app/today/page.tsx`
-    - ドット色を `habit.schedule?.accentColor` 由来に変更（未設定時は `#111111`）。
-    - 進捗リングのストローク色と完了チェック色を同じアクセントカラーに変更。
-- 期待効果:
-  - モノクロ基調の中でタスクごとの視認性が向上。
-  - 作成/編集時に選んだ色が Today UI で一貫して反映される。
-- 注意点:
-  - 色は `habits.schedule` JSON に保存しており、追加カラム migration は不要。
+### Step 3: 主要導線回帰（最低限）
+1. Login: 送信→再送→メール遷移案内の表示
+2. Habits: 並び替え（上下境界・連打・保存中制御）
+3. Settings: Dry Run→確認→Import 実行、結果表示確認
 
-## 18. 2026-02-17 追加追記（Inventoryドット色対応の再レビュー反映）
-- 背景:
-  - Inventory 画面のドット色をタスク色に合わせる修正（`6cc5de0`）に対し、ユーザーから品質面の再レビュー要望あり。
-- 現状整理:
-  - 機能面: `src/app/app/habits/page.tsx` で `h.schedule?.accentColor ?? '#111111'` を参照し、ドット `•` の文字色へ適用済み。
-  - 課題面: 直近差分に JSX のインデント崩れが残っており、可読性/レビュー体験を損ねる状態。
-- レビューで明示した改善候補（次担当が着手しやすい順）:
-  1. `src/app/app/habits/page.tsx` の JSX 整形（機能は維持したまま可読性を回復）。
-  2. 認証保護方式の整合（README は middleware 記載だが、実装は `src/app/app/layout.tsx` の client redirect 中心）。
-  3. Today のデータ取得最適化（`entries` 120日分取得の見直し）。
-  4. `flexible` の文言整合（week/month で表示文言を分岐）。
-  5. 各画面の `load` 系処理にエラー分岐を明示して、失敗時 UX を改善。
-- 補足:
-  - 今回は「作業に入らずレビューのみ」の依頼だったため、コード変更は行わず、観点のみ整理。
+### Step 4: PR レビュー未解決の解消
+1. 対象PRの Files changed を開く
+2. 未解決 inline comment を列挙
+3. 修正 or 根拠コメント返信で解消
+
+---
+
+## 7. 追加で改善推奨（優先度順）
+1. `src/app/app/habits/page.tsx` の JSX 整形（可読性改善）
+2. 認証保護方式の整理（README記載と実装方針の一致）
+3. Today の entries 取得期間（120日）の最適化
+4. `flexible` 文言の week/month 表示整合
+5. load系処理のエラー分岐明示（失敗時UX統一）
+
+---
+
+## 8. 引き継ぎメモ（運用）
+- 以後の HANDOFF 更新では、以下を厳守:
+  1. 同じ節番号を再利用しない（重複見出し禁止）
+  2. 「現状」「未完了」「次アクション」を最上部に維持
+  3. 履歴は要約し、詳細はPR本文/コミット参照に寄せる
