@@ -266,3 +266,25 @@
 - 次の一手:
   1. Supabase接続環境で `/app/today` を手動確認（成功時の即時反映、失敗時のロールバック・再試行動作）。
   2. STEP 2（Login/Nav導線改善）へ着手。
+
+## 17. 2026-02-16 追加追記（STEP 2 実装: Login / Nav 導線改善）
+- 実施背景:
+  - ユーザー指示「HANDOFFとSTEPに従って作業」に基づき、STEP 2（Login / App Nav 導線改善）を実装。
+- 実施内容:
+  - `src/app/login/page.tsx`
+    - Magic Link送信処理を `sendMagicLink` に集約し、通常送信と再送で共通化。
+    - 送信成功時に「送信先メールアドレス」「送信時刻」を表示。
+    - 受信確認の次アクション（受信トレイ確認 / 迷惑メール確認 / リンク遷移）を手順として明示。
+    - 「同じメールアドレスに再送」ボタンを追加。
+    - `mailto:` リンクでメールアプリを開く補助導線を追加。
+  - `src/components/AppNav.tsx`
+    - 既存のアイコンのみナビを、常時「アイコン + ラベル」表示へ変更。
+    - ラベルは `Today / Add / Analysis / Habits` に統一。
+- テスト/ビルド:
+  - `npm test` pass（5 files, 42 tests）
+  - `npm run build` pass
+- スクリーンショット:
+  - `/login` 画面で送信後UIを取得: `browser:/tmp/codex_browser_invocations/50a4acb6abcd3c1f/artifacts/artifacts/login-nav-step2.png`
+- 次の一手:
+  1. STEP 3（Habit Form の整合性修正）に着手。
+  2. Supabase接続環境で Login 実導線（送信→受信→callback→/app/today）を手動E2E確認。

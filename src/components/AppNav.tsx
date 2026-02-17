@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
-  ['/app/today', '⌂', 'Home'],
+  ['/app/today', '⌂', 'Today'],
   ['/app/habits/new', '+', 'Add'],
   ['/app/analysis', '▥', 'Analysis'],
-  ['/app/habits', '☰', 'List']
+  ['/app/habits', '☰', 'Habits']
 ] as const;
 
 export function AppNav() {
@@ -23,13 +23,14 @@ export function AppNav() {
               key={href}
               href={href}
               aria-label={label}
-              className={`tap-active flex h-12 w-12 items-center justify-center rounded-full text-xl transition-all sm:h-14 sm:w-14 sm:text-2xl ${
+              className={`tap-active flex min-w-[4.5rem] flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1.5 text-[10px] font-medium leading-none transition-all sm:min-w-[5.5rem] sm:gap-1 sm:text-xs ${
                 active
                   ? 'scale-105 bg-[#f0f0f4] font-black text-black'
                   : 'text-[#c8c8cc]'
               }`}
             >
-              {icon}
+              <span className="text-xl leading-none sm:text-2xl">{icon}</span>
+              <span className="leading-none">{label}</span>
             </Link>
           );
         })}
