@@ -30,7 +30,7 @@
   - 下部ナビで各導線（Today/Add/Analysis/Habits）の意味が常時可視化
 
 ## STEP 3: Habit Form の整合性修正
-- ステータス: ⏳ 未着手
+- ステータス: ✅ 完了（2026-02-17）
 - 変更対象（想定）
   - `src/components/HabitForm.tsx`
   - 必要なら `src/types/domain.ts`, SQL/migration
@@ -41,7 +41,7 @@
   - 「入力したが保存されない」項目が存在しない
 
 ## STEP 4: Habits 並び替えの堅牢化
-- ステータス: ⏳ 未着手
+- ステータス: ✅ 完了（2026-02-17）
 - 変更対象（想定）
   - `src/app/app/habits/page.tsx`
   - 必要なら server action / RPC / SQL
@@ -52,7 +52,7 @@
   - 重複sort_orderや意図しない並び崩れが起きない
 
 ## STEP 5: Settings Import/Export 安全化
-- ステータス: ⏳ 未着手
+- ステータス: ✅ 完了（2026-02-17）
 - 変更対象（想定）
   - `src/app/app/settings/page.tsx`
 - 実施
@@ -63,9 +63,9 @@
   - 誤インポートの可能性が下がり、失敗原因が分かる
 
 ## 共通チェック（各STEP後）
-- `npm test`
-- `npm run build`
-- 影響画面の手動確認
+- `npm test` ✅
+- `npm run build` ✅
+- 影響画面の手動確認（ローカルUI差分確認）✅
 
 ## 非対象
 - Analysis 画面の「習慣ごとの深掘り」は本計画に含めない。

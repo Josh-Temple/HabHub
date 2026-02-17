@@ -8,9 +8,6 @@ type Props = {
   onSubmit: (payload: Partial<Habit>) => Promise<void>;
 };
 
-const icons = ['☯', '⚡', '🧠', '✍', '🎵', '🏠', '🛒', '🧹', '🐾', '🚗', '🎮', '🏆'];
-const colors = ['#000000', '#d9d9de', '#f0c9c9', '#efd9b6', '#ece0b6', '#bde0c4', '#b8d2ef', '#dac8eb'];
-
 export function HabitForm({ initial, onSubmit }: Props) {
   const [name, setName] = useState(initial?.name ?? '');
   const [frequency, setFrequency] = useState<Habit['frequency']>(initial?.frequency ?? 'daily');
@@ -22,9 +19,6 @@ export function HabitForm({ initial, onSubmit }: Props) {
   const [targetDate, setTargetDate] = useState(initial?.schedule?.targetDate ?? '');
   const [externalUrl, setExternalUrl] = useState(initial?.external_url ?? '');
   const [archived, setArchived] = useState(initial?.archived ?? false);
-  const [icon, setIcon] = useState('☯');
-  const [customIcon, setCustomIcon] = useState('');
-  const [colorAccent, setColorAccent] = useState('#000000');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -155,32 +149,11 @@ export function HabitForm({ initial, onSubmit }: Props) {
         </section>
       )}
 
-      <section className="rounded-3xl bg-[#f7f7f8] p-4">
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 sm:gap-3">
-          {icons.map((item) => (
-            <button key={item} type="button" className={`tap-active rounded-2xl bg-white/70 py-2.5 text-xl sm:py-3 sm:text-2xl ${icon === item && !customIcon ? 'ring-2 ring-black' : ''}`} onClick={() => { setIcon(item); setCustomIcon(''); }}>
-              {item}
-            </button>
-          ))}
-        </div>
-        <input className="mt-3 w-full rounded-2xl border-0 bg-white/80 px-5 py-3 text-center text-2xl sm:py-4 sm:text-3xl" placeholder="Or type an Emoji..." value={customIcon} onChange={(e) => setCustomIcon(e.target.value.slice(0, 2))} />
-      </section>
-
       <section className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
           <p className="micro-label">Daily Goal</p>
           <div className="mt-3 rounded-3xl bg-[#f5f5f7] px-5 py-5 text-3xl font-black sm:px-6 sm:py-6 sm:text-4xl">{goal}<span className="ml-3 text-lg text-[#c3c3c7]">{frequencyLabel}</span></div>
           <input type="range" min={1} max={10} value={goal} onChange={(e) => setGoal(Number(e.target.value))} className="mt-4 w-full" />
-        </div>
-        <div>
-          <p className="micro-label">Color Accent</p>
-          <div className="mt-4 grid grid-cols-4 gap-2 sm:mt-5 sm:gap-3">
-            {colors.map((color) => (
-              <button key={color} type="button" onClick={() => setColorAccent(color)} className={`tap-active h-10 w-10 rounded-full ${colorAccent === color ? 'ring-2 ring-black ring-offset-2 ring-offset-white' : ''}`} style={{ backgroundColor: color }}>
-                <span className="sr-only">pick {color}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </section>
 
