@@ -325,3 +325,22 @@
   - `npm run build` pass
 - 現在の残タスク:
   - Supabase接続環境での手動E2E（Today/Habits/Settings）最終確認。
+
+## 17. 2026-02-17 追加追記（タスク色アクセントの復活）
+- 背景:
+  - ユーザー要望「タスク作成時に色を選べる機能を復活し、Today のドットと完了サークルに反映したい」。
+- 実施内容:
+  - `src/components/HabitForm.tsx`
+    - Color Accent パレットUIを再追加（8色）。
+    - 選択色を `schedule.accentColor` として保存するように変更。
+    - 既存タスク編集時は `initial.schedule?.accentColor` を初期値に反映。
+  - `src/types/domain.ts`
+    - `Habit.schedule` に `accentColor?: string` を追加。
+  - `src/app/app/today/page.tsx`
+    - ドット色を `habit.schedule?.accentColor` 由来に変更（未設定時は `#111111`）。
+    - 進捗リングのストローク色と完了チェック色を同じアクセントカラーに変更。
+- 期待効果:
+  - モノクロ基調の中でタスクごとの視認性が向上。
+  - 作成/編集時に選んだ色が Today UI で一貫して反映される。
+- 注意点:
+  - 色は `habits.schedule` JSON に保存しており、追加カラム migration は不要。

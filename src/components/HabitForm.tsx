@@ -3,6 +3,17 @@
 import { useMemo, useState } from 'react';
 import { Habit } from '@/types/domain';
 
+const ACCENT_COLORS = [
+  '#111111',
+  '#8E8E93',
+  '#FF3B30',
+  '#FF9500',
+  '#FFCC00',
+  '#34C759',
+  '#007AFF',
+  '#AF52DE',
+];
+
 type Props = {
   initial?: Partial<Habit>;
   onSubmit: (payload: Partial<Habit>) => Promise<void>;
@@ -18,6 +29,7 @@ export function HabitForm({ initial, onSubmit }: Props) {
   const [interval, setInterval] = useState<'week' | 'month'>(initial?.schedule?.interval ?? 'week');
   const [targetDate, setTargetDate] = useState(initial?.schedule?.targetDate ?? '');
   const [externalUrl, setExternalUrl] = useState(initial?.external_url ?? '');
+  const [accentColor, setAccentColor] = useState(initial?.schedule?.accentColor ?? '#111111');
   const [archived, setArchived] = useState(initial?.archived ?? false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -57,7 +69,8 @@ export function HabitForm({ initial, onSubmit }: Props) {
               monthDays: monthDays.length ? monthDays : undefined,
               targetIntervalCount,
               interval,
-              targetDate: targetDate || undefined
+              targetDate: targetDate || undefined,
+              accentColor,
             },
             external_url: externalUrl || null,
             archived
@@ -154,6 +167,23 @@ export function HabitForm({ initial, onSubmit }: Props) {
           <p className="micro-label">Daily Goal</p>
           <div className="mt-3 rounded-3xl bg-[#f5f5f7] px-5 py-5 text-3xl font-black sm:px-6 sm:py-6 sm:text-4xl">{goal}<span className="ml-3 text-lg text-[#c3c3c7]">{frequencyLabel}</span></div>
           <input type="range" min={1} max={10} value={goal} onChange={(e) => setGoal(Number(e.target.value))} className="mt-4 w-full" />
+        </div>
+        <div>
+          <p className="micro-label">Color Accent</p>
+          <div className="mt-3 grid grid-cols-4 gap-3 rounded-3xl bg-[#f5f5f7] p-4">
+            {ACCENT_COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setAccentColor(color)}
+                className={`tap-active h-7 w-7 rounded-full ring-offset-2 transition-all ${accentColor === color ? 'scale-110 ring-2 ring-black' : 'opacity-50 hover:opacity-100'}`}
+                style={{ backgroundColor: color }}
+                aria-label={`Choose accent ${color}`}
+              >
+                {accentColor === color && <span className="block h-2 w-2 rounded-full bg-white/90 shadow-sm" />}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 

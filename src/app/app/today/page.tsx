@@ -8,7 +8,7 @@ import { isEntryDone, nextCountFromBump, nextCountFromToggle } from '@/lib/domai
 import { isHabitDue } from '@/lib/domain/isHabitDue';
 import { Entry, Habit, UserSettings } from '@/types/domain';
 
-function ProgressRing({ progress, done }: { progress: number; done: boolean }) {
+function ProgressRing({ progress, done, accentColor }: { progress: number; done: boolean; accentColor: string }) {
   const radius = 17;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - progress);
@@ -21,14 +21,14 @@ function ProgressRing({ progress, done }: { progress: number; done: boolean }) {
         cy="20"
         r={radius}
         fill="none"
-        stroke={done ? '#111111' : '#888888'}
+        stroke={accentColor}
         strokeWidth="3"
         strokeLinecap="round"
         strokeDasharray={circumference}
         strokeDashoffset={offset}
         transform="rotate(-90 20 20)"
       />
-      {done && <text x="20" y="24" textAnchor="middle" className="fill-black text-[12px]">✓</text>}
+      {done && <text x="20" y="24" textAnchor="middle" className="text-[12px]" fill={accentColor}>✓</text>}
     </svg>
   );
 }
@@ -241,6 +241,7 @@ export default function TodayPage() {
     const count = entry?.count ?? 0;
     const done = isEntryDone(entry, habit);
     const progress = Math.min(1, count / habit.goal_count);
+    const accentColor = habit.schedule?.accentColor ?? '#111111';
 
     return (
       <div className="border-b border-[#ebebeb] py-5 sm:py-6">
@@ -248,7 +249,7 @@ export default function TodayPage() {
           <button className="tap-active text-left" onClick={() => void bump(habit, 1)} disabled={busyHabitId === habit.id}>
             <p className={`text-lg font-black leading-tight tracking-tight sm:text-xl ${done ? 'opacity-40 line-through' : ''}`}>{habit.name}</p>
             <p className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#888] sm:tracking-[0.4em]">
-              <span className={`h-2 w-2 rounded-full ${done ? 'bg-black' : 'bg-[#888]'}`} />
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }} />
               {habit.frequency === 'flexible' ? `Weekly Goal: ${count} / ${habit.goal_count}` : `${count} / ${habit.goal_count} completed`}
             </p>
           </button>
@@ -259,7 +260,7 @@ export default function TodayPage() {
               </a>
             )}
             <button onClick={() => void toggleDone(habit)} disabled={busyHabitId === habit.id}>
-              <ProgressRing progress={progress} done={done} />
+              <ProgressRing progress={progress} done={done} accentColor={accentColor} />
             </button>
           </div>
         </div>
