@@ -28,9 +28,19 @@ function ProgressRing({ progress, done, accentColor }: { progress: number; done:
         strokeDashoffset={offset}
         transform="rotate(-90 20 20)"
       />
-      {done && <text x="20" y="24" textAnchor="middle" className="text-[12px]" fill={accentColor}>✓</text>}
+      {done && (
+        <text x="20" y="24" textAnchor="middle" className="text-[12px]" fill={accentColor}>
+          ✓
+        </text>
+      )}
     </svg>
   );
+}
+
+function habitPriority(habit: Habit): number {
+  if (habit.frequency === 'once') return 0;
+  if (habit.frequency === 'flexible') return 1;
+  return 2;
 }
 
 export default function TodayPage() {
@@ -43,10 +53,7 @@ export default function TodayPage() {
   const [showCompleted, setShowCompleted] = useState(false);
   const today = toDateKey(new Date());
 
-  const entryMap = useMemo(
-    () => new Map(entries.filter((entry) => entry.date_key === today).map((entry) => [entry.habit_id, entry])),
-    [entries, today]
-  );
+  const entryMap = useMemo(() => new Map(entries.filter((entry) => entry.date_key === today).map((entry) => [entry.habit_id, entry])), [entries, today]);
 
   const load = async () => {
     const supabase = createClient();
@@ -71,11 +78,7 @@ export default function TodayPage() {
     }
 
     if (u.user) {
-      const { data } = await supabase
-        .from('user_settings')
-        .upsert({ user_id: u.user.id, week_start: 1 }, { onConflict: 'user_id' })
-        .select('*')
-        .single();
+      const { data } = await supabase.from('user_settings').upsert({ user_id: u.user.id, week_start: 1 }, { onConflict: 'user_id' }).select('*').single();
       setSettings(data as UserSettings);
     }
   };
@@ -85,8 +88,8 @@ export default function TodayPage() {
   }, []);
 
   const dueHabits = useMemo(() => habits.filter((habit) => isHabitDue(habit, today, entries, settings)), [habits, entries, settings, today]);
-  const activeDueHabits = dueHabits.filter((habit) => !isEntryDone(entryMap.get(habit.id), habit));
-  const completedDueHabits = dueHabits.filter((habit) => isEntryDone(entryMap.get(habit.id), habit));
+  const activeDueHabits = useMemo(() => dueHabits.filter((habit) => !isEntryDone(entryMap.get(habit.id), habit)).sort((a, b) => habitPriority(a) - habitPriority(b)), [dueHabits, entryMap]);
+  const completedDueHabits = useMemo(() => dueHabits.filter((habit) => isEntryDone(entryMap.get(habit.id), habit)), [dueHabits, entryMap]);
 
   const routineHabits = activeDueHabits.filter((habit) => habit.frequency !== 'once');
   const oneOffHabits = activeDueHabits.filter((habit) => habit.frequency === 'once');
@@ -99,25 +102,10 @@ export default function TodayPage() {
       const nextEntries = previousEntries.map((entry) => {
         if (entry.habit_id !== habit.id || entry.date_key !== today) return entry;
         found = true;
-        return {
-          ...entry,
-          count,
-          completed: count >= habit.goal_count,
-        };
+        return { ...entry, count, completed: count >= habit.goal_count };
       });
-
       if (found) return nextEntries;
-
-      return [
-        ...nextEntries,
-        {
-          user_id: settings.user_id,
-          habit_id: habit.id,
-          date_key: today,
-          count,
-          completed: count >= habit.goal_count,
-        },
-      ];
+      return [...nextEntries, { user_id: settings.user_id, habit_id: habit.id, date_key: today, count, completed: count >= habit.goal_count }];
     });
   };
 
@@ -133,7 +121,6 @@ export default function TodayPage() {
         if (restored) return restoredEntries;
         return [...restoredEntries, previousEntry];
       }
-
       return previousEntries.filter((entry) => !(entry.habit_id === habit.id && entry.date_key === today));
     });
   };
@@ -146,10 +133,7 @@ export default function TodayPage() {
     applyOptimisticEntry(habit, count);
 
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         rollbackOptimisticEntry(habit, previousEntry);
         setRetryTarget({ habitId: habit.id, count });
@@ -157,36 +141,18 @@ export default function TodayPage() {
         return;
       }
 
-      const entryKey = {
-        user_id: user.id,
-        habit_id: habit.id,
-        date_key: today,
-      };
-      const entryValues = {
-        count,
-        completed: count >= habit.goal_count,
-      };
-      const entryValuesWithoutCompleted = {
-        count,
-      };
+      const entryKey = { user_id: user.id, habit_id: habit.id, date_key: today };
+      const entryValues = { count, completed: count >= habit.goal_count };
+      const entryValuesWithoutCompleted = { count };
 
       const result = await writeEntryWithCompat(
         {
           upsert: async (values) => {
-            const { error } = await supabase
-              .from('entries')
-              .upsert({ ...entryKey, ...values }, { onConflict: 'user_id,habit_id,date_key' });
+            const { error } = await supabase.from('entries').upsert({ ...entryKey, ...values }, { onConflict: 'user_id,habit_id,date_key' });
             return error;
           },
           update: async (values) => {
-            const { data, error } = await supabase
-              .from('entries')
-              .update(values)
-              .eq('user_id', entryKey.user_id)
-              .eq('habit_id', entryKey.habit_id)
-              .eq('date_key', entryKey.date_key)
-              .select('habit_id');
-
+            const { data, error } = await supabase.from('entries').update(values).eq('user_id', entryKey.user_id).eq('habit_id', entryKey.habit_id).eq('date_key', entryKey.date_key).select('habit_id');
             return { error, updated: (data ?? []).length > 0 };
           },
           insert: async (values) => {
@@ -201,27 +167,16 @@ export default function TodayPage() {
       if (!result.ok) {
         rollbackOptimisticEntry(habit, previousEntry);
         setRetryTarget({ habitId: habit.id, count });
-        console.error('[today/updateEntry] failed to persist entry', {
-          code: result.error.code,
-          message: result.error.message,
-          details: result.error.details,
-          hint: result.error.hint,
-          stage: result.stage,
-          usedLegacyPayload: result.usedLegacyPayload,
-          entryKey,
-          entryValues,
-        });
         setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
-        return;
       }
     } finally {
       setBusyHabitId(null);
     }
   };
 
-  const bump = async (habit: Habit, delta: number) => {
+  const bump = async (habit: Habit) => {
     const current = entryMap.get(habit.id);
-    await updateEntry(habit, nextCountFromBump(current, habit, delta), current);
+    await updateEntry(habit, nextCountFromBump(current, habit, 1), current);
   };
 
   const toggleDone = async (habit: Habit) => {
@@ -232,15 +187,13 @@ export default function TodayPage() {
   const retryUpdate = async () => {
     if (!retryTarget) return;
     const habit = habits.find((item) => item.id === retryTarget.habitId);
-    if (!habit) {
-      setRetryTarget(null);
-      return;
-    }
+    if (!habit) return;
     const current = entryMap.get(habit.id);
     await updateEntry(habit, retryTarget.count, current);
   };
 
-  const completedCount = dueHabits.filter((habit) => isEntryDone(entryMap.get(habit.id), habit)).length;
+  const completedCount = completedDueHabits.length;
+  const remainingCount = dueHabits.length - completedCount;
 
   const HabitRow = ({ habit }: { habit: Habit }) => {
     const entry = entryMap.get(habit.id);
@@ -252,20 +205,20 @@ export default function TodayPage() {
     return (
       <div className="border-b border-[#ebebeb] py-5 sm:py-6">
         <div className="flex items-start justify-between gap-3 sm:items-center sm:gap-4">
-          <button className="tap-active text-left" onClick={() => void bump(habit, 1)} disabled={busyHabitId === habit.id}>
-            <p className={`text-lg font-black leading-tight tracking-tight sm:text-xl ${done ? 'opacity-40 line-through' : ''}`}>{habit.name}</p>
-            <p className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#888] sm:tracking-[0.4em]">
+          <button className="tap-active text-left" onClick={() => void bump(habit)} disabled={busyHabitId === habit.id}>
+            <p className={`text-lg font-black leading-tight tracking-tight sm:text-xl ${done ? 'opacity-50 line-through' : ''}`}>{habit.name}</p>
+            <p className="mt-2 flex items-center gap-2 text-[11px] font-bold text-[#666]">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }} />
-              {habit.frequency === 'flexible' ? `Weekly Goal: ${count} / ${habit.goal_count}` : `${count} / ${habit.goal_count} completed`}
+              {habit.frequency === 'flexible' ? `週間目標: ${count} / ${habit.goal_count}` : `${count} / ${habit.goal_count} 完了`}
             </p>
           </button>
           <div className="flex items-center gap-1.5 sm:gap-2">
             {habit.external_url && (
-              <a href={habit.external_url} target="_blank" rel="noreferrer" className="text-[#888] tap-active">
+              <a href={habit.external_url} target="_blank" rel="noreferrer" className="text-[#666] tap-active" aria-label="外部リンクを開く">
                 ↗
               </a>
             )}
-            <button onClick={() => void toggleDone(habit)} disabled={busyHabitId === habit.id}>
+            <button onClick={() => void toggleDone(habit)} disabled={busyHabitId === habit.id} aria-label={`${habit.name} の完了を切り替える`}>
               <ProgressRing progress={progress} done={done} accentColor={accentColor} />
             </button>
           </div>
@@ -277,18 +230,22 @@ export default function TodayPage() {
   return (
     <div className="space-y-7 sm:space-y-8">
       <section>
-        <p className="micro-label">Daily Snapshot</p>
-        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">Current Focus</h1>
+        <p className="micro-label">今日のダッシュボード</p>
+        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">今日のフォーカス</h1>
       </section>
 
-      <section className="border-y border-[#ebebeb] py-5 sm:py-6">
+      <section className="space-y-4 rounded-3xl border border-[#ebebeb] p-5 sm:p-6">
         <div className="flex items-center gap-4 sm:gap-6">
           <p className="text-5xl font-black leading-none tracking-tighter sm:text-6xl">
             {String(completedCount).padStart(2, '0')}
-            <span className="ml-1 text-3xl text-[#d1d1d4] sm:ml-2 sm:text-4xl">/{String(dueHabits.length).padStart(2, '0')}</span>
+            <span className="ml-1 text-3xl text-[#9f9fa8] sm:ml-2 sm:text-4xl">/{String(dueHabits.length).padStart(2, '0')}</span>
           </p>
-          <div className="h-12 w-px bg-[#ebebeb] sm:h-14" />
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-black sm:tracking-[0.5em]">Completed<br /><span className="text-[#bcbcc0]">Today's Progress</span></p>
+          <p className="text-xs font-bold text-[#666]">今日の進捗</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555]">未完了: {remainingCount}</div>
+          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555]">完了済み: {completedCount}</div>
+          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555] sm:block hidden">対象習慣: {dueHabits.length}</div>
         </div>
       </section>
 
@@ -296,60 +253,32 @@ export default function TodayPage() {
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm font-bold text-[#a33]">{errorMessage}</p>
           {retryTarget && (
-            <button
-              type="button"
-              onClick={() => void retryUpdate()}
-              disabled={busyHabitId !== null}
-              className="tap-active rounded-full border border-[#a33] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#a33] disabled:opacity-50"
-            >
+            <button type="button" onClick={() => void retryUpdate()} disabled={busyHabitId !== null} className="tap-active rounded-full border border-[#a33] px-3 py-1 text-xs font-black tracking-[0.1em] text-[#a33] disabled:opacity-50">
               再試行
             </button>
           )}
         </div>
       )}
 
-      {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#888] sm:py-24 sm:text-xl">Nothing Scheduled</p>}
+      <section>
+        <p className="micro-label">今やるタスク</p>
+        {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#666] sm:py-24 sm:text-xl">今日の予定はありません</p>}
 
-      {routineHabits.length > 0 && (
-        <section>
-          <p className="micro-label">Routine</p>
-          <div className="mt-2 sm:mt-3">{routineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
-        </section>
-      )}
-
-      {oneOffHabits.length > 0 && (
-        <section>
-          <p className="micro-label">One-off Tasks</p>
-          <div className="mt-2 sm:mt-3">{oneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
-        </section>
-      )}
+        {routineHabits.length > 0 && <div className="mt-2 sm:mt-3">{routineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
+        {oneOffHabits.length > 0 && <div className="mt-2 sm:mt-3">{oneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
+      </section>
 
       {completedDueHabits.length > 0 && (
         <section>
-          <button
-            type="button"
-            onClick={() => setShowCompleted((prev) => !prev)}
-            className="tap-active micro-label flex items-center gap-2 text-left"
-          >
-            <span>Completed ({String(completedDueHabits.length).padStart(2, '0')})</span>
-            <span className="text-xs text-[#888]">{showCompleted ? 'Hide' : 'Show'}</span>
+          <button type="button" onClick={() => setShowCompleted((prev) => !prev)} className="tap-active micro-label flex items-center gap-2 text-left">
+            <span>完了済み ({String(completedDueHabits.length).padStart(2, '0')})</span>
+            <span className="text-xs text-[#666]">{showCompleted ? '閉じる' : '表示'}</span>
           </button>
 
           {showCompleted && (
             <div className="mt-2 space-y-6 sm:mt-3">
-              {completedRoutineHabits.length > 0 && (
-                <div>
-                  <p className="micro-label text-[#888]">Routine</p>
-                  <div className="mt-2 sm:mt-3">{completedRoutineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
-                </div>
-              )}
-
-              {completedOneOffHabits.length > 0 && (
-                <div>
-                  <p className="micro-label text-[#888]">One-off Tasks</p>
-                  <div className="mt-2 sm:mt-3">{completedOneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>
-                </div>
-              )}
+              {completedRoutineHabits.length > 0 && <div>{completedRoutineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
+              {completedOneOffHabits.length > 0 && <div>{completedOneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
             </div>
           )}
         </section>

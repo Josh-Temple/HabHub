@@ -23,7 +23,7 @@ const INITIAL_IMPORT_RESULT: ImportResult = {
 function formatImportSummary(results: ImportResult): string {
   const hasFailure = Object.values(results).some((result) => result.startsWith('失敗'));
   return [
-    hasFailure ? 'Import completed with errors' : 'Import completed',
+    hasFailure ? 'インポート完了（エラーあり）' : 'インポート完了',
     `habits: ${results.habits}`,
     `entries: ${results.entries}`,
     `user_settings: ${results.user_settings}`,
@@ -65,12 +65,12 @@ export default function SettingsPage() {
     ]);
 
     setPayload(JSON.stringify({ habits: h.data, entries: e.data, user_settings: s.data }, null, 2));
-    setMessage('Export completed');
+    setMessage('エクスポート完了');
   };
 
   const executeImport = async (migration = false) => {
     if (!validation.ok || !validation.parsed) {
-      setMessage(`Import failed: ${validation.errors.join(' / ')}`);
+      setMessage(`インポート失敗: ${validation.errors.join(' / ')}`);
       setShowConfirm(false);
       return;
     }
@@ -100,18 +100,18 @@ export default function SettingsPage() {
     setShowConfirm(false);
   };
 
-  if (!settings) return <p>Loading...</p>;
+  if (!settings) return <p>読み込み中...</p>;
 
   return (
     <div className="space-y-7 sm:space-y-8">
       <section>
-        <p className="micro-label">Configuration</p>
-        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">Settings</h1>
+        <p className="micro-label">設定</p>
+        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">設定</h1>
       </section>
 
       <section className="divide-y divide-[#ebebeb] rounded-3xl border border-[#ebebeb] bg-white px-4 sm:px-6">
         <div className="flex items-center justify-between gap-3 py-4 text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]">
-          Week Start
+          週の開始日
           <select
             value={settings.week_start}
             onChange={async (e) => {
@@ -125,7 +125,7 @@ export default function SettingsPage() {
             <option value={1}>Mon</option>
           </select>
         </div>
-        <button className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]" onClick={onExport}>Export JSON <span>›</span></button>
+        <button className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]" onClick={onExport}>JSONをエクスポート <span>›</span></button>
         <button
           className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]"
           onClick={() => {
@@ -133,7 +133,7 @@ export default function SettingsPage() {
             setShowConfirm(true);
           }}
         >
-          Import JSON <span>›</span>
+          JSONをインポート <span>›</span>
         </button>
         {!settings.migration_done && (
           <button
@@ -143,16 +143,16 @@ export default function SettingsPage() {
               setShowConfirm(true);
             }}
           >
-            Legacy Import <span>›</span>
+            旧データをインポート <span>›</span>
           </button>
         )}
       </section>
 
-      <textarea className="min-h-64 w-full rounded-3xl border-0 bg-[#f5f5f7] p-4 text-sm sm:min-h-72 sm:p-5" value={payload} onChange={(e) => setPayload(e.target.value)} placeholder="JSON payload" />
+      <textarea className="min-h-64 w-full rounded-3xl border-0 bg-[#f5f5f7] p-4 text-sm sm:min-h-72 sm:p-5" value={payload} onChange={(e) => setPayload(e.target.value)} placeholder="JSONデータ" />
 
       {hasPayload && (
         <section className="rounded-3xl border border-[#ebebeb] bg-white p-4 text-sm">
-          <p className="font-bold">Dry Run</p>
+          <p className="font-bold">事前確認</p>
           {validation.ok && validation.parsed ? (
             <ul className="mt-2 space-y-1 text-[#666]">
               <li>habits: {validation.parsed.habits.length} 件</li>
