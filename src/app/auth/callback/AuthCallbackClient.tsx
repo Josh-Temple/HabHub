@@ -36,7 +36,7 @@ export default function AuthCallbackClient({ nextPath, tokenHash, type }: AuthCa
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from('user_settings').upsert({ user_id: user.id, week_start: 1 }, { onConflict: 'user_id' });
+        await supabase.from('user_settings').upsert({ user_id: user.id, week_start: 1, language: 'en' }, { onConflict: 'user_id' });
       }
 
       router.replace(nextPath);

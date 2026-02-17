@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isHabitDue } from './isHabitDue';
 import { Entry, Habit, UserSettings } from '@/types/domain';
 
-const settings: UserSettings = { user_id: 'u', week_start: 1, migration_done: false };
+const settings: UserSettings = { user_id: 'u', week_start: 1, language: 'en', migration_done: false };
 const base: Habit = {
   id: 'h', user_id: 'u', name: 'h', description: null, frequency: 'daily', goal_count: 1,
   schedule: {}, external_url: null, archived: false, sort_order: 0, created_at: '2025-01-01T00:00:00Z'

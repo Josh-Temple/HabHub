@@ -46,7 +46,7 @@ function habitPriority(habit: Habit): number {
 export default function TodayPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [settings, setSettings] = useState<UserSettings>({ user_id: '', week_start: 1, migration_done: false });
+  const [settings, setSettings] = useState<UserSettings>({ user_id: '', week_start: 1, language: 'en', migration_done: false });
   const [busyHabitId, setBusyHabitId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [retryTarget, setRetryTarget] = useState<{ habitId: string; count: number } | null>(null);
@@ -73,12 +73,12 @@ export default function TodayPage() {
     setEntries((es ?? []) as Entry[]);
 
     if (s) {
-      setSettings(s as UserSettings);
+      setSettings({ language: 'en', ...(s as UserSettings) });
       return;
     }
 
     if (u.user) {
-      const { data } = await supabase.from('user_settings').upsert({ user_id: u.user.id, week_start: 1 }, { onConflict: 'user_id' }).select('*').single();
+      const { data } = await supabase.from('user_settings').upsert({ user_id: u.user.id, week_start: 1, language: 'en' }, { onConflict: 'user_id' }).select('*').single();
       setSettings(data as UserSettings);
     }
   };

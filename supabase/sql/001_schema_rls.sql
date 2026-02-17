@@ -3,6 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   week_start smallint not null default 1 check (week_start in (0,1)),
+  language text not null default 'en' check (language in ('en','ja')),
   migration_done boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

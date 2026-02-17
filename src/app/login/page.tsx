@@ -16,7 +16,7 @@ export default function ログインPage() {
     const supabase = createClient();
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session?.user) {
-        await supabase.from('user_settings').upsert({ user_id: data.session.user.id, week_start: 1 }, { onConflict: 'user_id' });
+        await supabase.from('user_settings').upsert({ user_id: data.session.user.id, week_start: 1, language: 'en' }, { onConflict: 'user_id' });
         router.push('/app/today');
       }
     });
