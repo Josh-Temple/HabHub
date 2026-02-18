@@ -49,7 +49,8 @@ export default function SettingsPage() {
 
   const load = async () => {
     const { data } = await createClient().from('user_settings').select('*').single();
-    setSettings({ language: 'en', ...(data as UserSettings) });
+    const userSettings = data as UserSettings;
+    setSettings({ ...userSettings, language: userSettings.language ?? 'en' });
   };
 
   useEffect(() => {
