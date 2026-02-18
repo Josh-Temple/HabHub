@@ -73,7 +73,8 @@ export default function TodayPage() {
     setEntries((es ?? []) as Entry[]);
 
     if (s) {
-      setSettings({ language: 'en', ...(s as UserSettings) });
+      const userSettings = s as UserSettings;
+      setSettings({ ...userSettings, language: userSettings.language ?? 'en' });
       return;
     }
 
