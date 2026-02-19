@@ -46,6 +46,26 @@ export default function SettingsPage() {
 
   const validation = useMemo(() => validateImportPayload(payload), [payload]);
   const hasPayload = payload.trim().length > 0;
+  const lang = settings?.language ?? 'en';
+  const isJa = lang === 'ja';
+
+  const ui = {
+    loading: isJa ? '読み込み中...' : 'Loading...',
+    settings: isJa ? '設定' : 'Settings',
+    language: isJa ? '言語' : 'Language',
+    weekStart: isJa ? '週の開始日' : 'Week start',
+    exportJson: isJa ? 'JSONをエクスポート' : 'Export JSON',
+    importJson: isJa ? 'JSONをインポート' : 'Import JSON',
+    importLegacy: isJa ? '旧データをインポート' : 'Import legacy data',
+    jsonData: isJa ? 'JSONデータ' : 'JSON data',
+    preflight: isJa ? '事前確認' : 'Preflight check',
+    yes: isJa ? 'あり' : 'yes',
+    no: isJa ? 'なし' : 'no',
+    confirm: isJa ? 'この内容でインポートしますか？' : 'Import this payload?',
+    note: isJa ? '失敗した項目があっても、成功した項目は反映されます。' : 'Successful sections are applied even if some sections fail.',
+    run: isJa ? '実行' : 'Run',
+    cancel: isJa ? 'キャンセル' : 'Cancel',
+  };
 
   const load = async () => {
     const { data } = await createClient().from('user_settings').select('*').single();
@@ -66,12 +86,12 @@ export default function SettingsPage() {
     ]);
 
     setPayload(JSON.stringify({ habits: h.data, entries: e.data, user_settings: s.data }, null, 2));
-    setMessage('エクスポート完了');
+    setMessage(isJa ? 'エクスポート完了' : 'Export completed');
   };
 
   const executeImport = async (migration = false) => {
     if (!validation.ok || !validation.parsed) {
-      setMessage(`インポート失敗: ${validation.errors.join(' / ')}`);
+      setMessage(isJa ? `インポート失敗: ${validation.errors.join(' / ')}` : `Import failed: ${validation.errors.join(' / ')}`);
       setShowConfirm(false);
       return;
     }
@@ -101,18 +121,18 @@ export default function SettingsPage() {
     setShowConfirm(false);
   };
 
-  if (!settings) return <p>読み込み中...</p>;
+  if (!settings) return <p>{ui.loading}</p>;
 
   return (
     <div className="space-y-7 sm:space-y-8">
       <section>
-        <p className="micro-label">設定</p>
-        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">設定</h1>
+        <p className="micro-label">{ui.settings}</p>
+        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">{ui.settings}</h1>
       </section>
 
       <section className="divide-y divide-[#ebebeb] rounded-3xl border border-[#ebebeb] bg-white px-4 sm:px-6">
         <div className="flex items-center justify-between gap-3 py-4 text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]">
-          言語
+          {ui.language}
           <select
             value={settings.language ?? 'en'}
             onChange={async (e) => {
@@ -127,7 +147,7 @@ export default function SettingsPage() {
           </select>
         </div>
         <div className="flex items-center justify-between gap-3 py-4 text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]">
-          週の開始日
+          {ui.weekStart}
           <select
             value={settings.week_start}
             onChange={async (e) => {
@@ -141,7 +161,7 @@ export default function SettingsPage() {
             <option value={1}>Mon</option>
           </select>
         </div>
-        <button className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]" onClick={onExport}>JSONをエクスポート <span>›</span></button>
+        <button className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]" onClick={onExport}>{ui.exportJson} <span>›</span></button>
         <button
           className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]"
           onClick={() => {
@@ -149,7 +169,7 @@ export default function SettingsPage() {
             setShowConfirm(true);
           }}
         >
-          JSONをインポート <span>›</span>
+          {ui.importJson} <span>›</span>
         </button>
         {!settings.migration_done && (
           <button
@@ -159,21 +179,21 @@ export default function SettingsPage() {
               setShowConfirm(true);
             }}
           >
-            旧データをインポート <span>›</span>
+            {ui.importLegacy} <span>›</span>
           </button>
         )}
       </section>
 
-      <textarea className="min-h-64 w-full rounded-3xl border-0 bg-[#f5f5f7] p-4 text-sm sm:min-h-72 sm:p-5" value={payload} onChange={(e) => setPayload(e.target.value)} placeholder="JSONデータ" />
+      <textarea className="min-h-64 w-full rounded-3xl border-0 bg-[#f5f5f7] p-4 text-sm sm:min-h-72 sm:p-5" value={payload} onChange={(e) => setPayload(e.target.value)} placeholder={ui.jsonData} />
 
       {hasPayload && (
         <section className="rounded-3xl border border-[#ebebeb] bg-white p-4 text-sm">
-          <p className="font-bold">事前確認</p>
+          <p className="font-bold">{ui.preflight}</p>
           {validation.ok && validation.parsed ? (
             <ul className="mt-2 space-y-1 text-[#666]">
               <li>habits: {validation.parsed.habits.length} 件</li>
               <li>entries: {validation.parsed.entries.length} 件</li>
-              <li>user_settings: {validation.parsed.user_settings ? 'あり' : 'なし'}</li>
+              <li>user_settings: {validation.parsed.user_settings ? ui.yes : ui.no}</li>
             </ul>
           ) : (
             <ul className="mt-2 list-disc space-y-1 pl-5 text-red-600">
@@ -187,11 +207,11 @@ export default function SettingsPage() {
 
       {showConfirm && (
         <section className="rounded-3xl border border-black bg-white p-4">
-          <p className="text-sm font-bold">この内容でインポートしますか？</p>
-          <p className="mt-2 text-xs text-[#666]">失敗した項目があっても、成功した項目は反映されます。</p>
+          <p className="text-sm font-bold">{ui.confirm}</p>
+          <p className="mt-2 text-xs text-[#666]">{ui.note}</p>
           <div className="mt-4 flex gap-2">
-            <button className="tap-active rounded-2xl bg-black px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-white disabled:opacity-40" disabled={!validation.ok} onClick={() => void executeImport(runMigrationAfterImport)}>実行</button>
-            <button className="tap-active rounded-2xl bg-[#f5f5f7] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em]" onClick={() => setShowConfirm(false)}>キャンセル</button>
+            <button className="tap-active rounded-2xl bg-black px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-white disabled:opacity-40" disabled={!validation.ok} onClick={() => void executeImport(runMigrationAfterImport)}>{ui.run}</button>
+            <button className="tap-active rounded-2xl bg-[#f5f5f7] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em]" onClick={() => setShowConfirm(false)}>{ui.cancel}</button>
           </div>
         </section>
       )}

@@ -65,7 +65,7 @@ export default function TodayPage() {
     ]);
 
     if (habitsError || entriesError || userError) {
-      setErrorMessage('読み込みに失敗しました。再度お試しください。');
+      setErrorMessage(ui.loadError);
       return;
     }
 
@@ -138,7 +138,7 @@ export default function TodayPage() {
       if (userError || !user) {
         rollbackOptimisticEntry(habit, previousEntry);
         setRetryTarget({ habitId: habit.id, count });
-        setErrorMessage('ログイン状態を確認できませんでした。再ログインしてください。');
+        setErrorMessage(ui.authError);
         return;
       }
 
@@ -168,7 +168,7 @@ export default function TodayPage() {
       if (!result.ok) {
         rollbackOptimisticEntry(habit, previousEntry);
         setRetryTarget({ habitId: habit.id, count });
-        setErrorMessage('完了状態の更新に失敗しました。時間をおいて再度お試しください。');
+        setErrorMessage(ui.updateError);
       }
     } finally {
       setBusyHabitId(null);
@@ -195,6 +195,28 @@ export default function TodayPage() {
 
   const completedCount = completedDueHabits.length;
   const remainingCount = dueHabits.length - completedCount;
+  const isJa = settings.language === 'ja';
+
+  const ui = {
+    loadError: isJa ? '読み込みに失敗しました。再度お試しください。' : 'Failed to load. Please try again.',
+    authError: isJa ? 'ログイン状態を確認できませんでした。再ログインしてください。' : 'Unable to verify login status. Please sign in again.',
+    updateError: isJa ? '完了状態の更新に失敗しました。時間をおいて再度お試しください。' : 'Failed to update completion status. Please try again later.',
+    weeklyGoal: isJa ? '週間目標' : 'Weekly goal',
+    doneSuffix: isJa ? '完了' : 'done',
+    openExternal: isJa ? '外部リンクを開く' : 'Open external link',
+    toggleDone: (name: string) => (isJa ? `${name} の完了を切り替える` : `Toggle completion for ${name}`),
+    dashboardLabel: isJa ? '今日のダッシュボード' : 'Today dashboard',
+    dashboardTitle: isJa ? '今日のフォーカス' : 'Today focus',
+    todayProgress: isJa ? '今日の進捗' : 'Today progress',
+    remaining: isJa ? '未完了' : 'Remaining',
+    completed: isJa ? '完了済み' : 'Completed',
+    targetHabits: isJa ? '対象習慣' : 'Target habits',
+    retry: isJa ? '再試行' : 'Retry',
+    nowTasks: isJa ? '今やるタスク' : 'Tasks for now',
+    noPlan: isJa ? '今日の予定はありません' : 'No tasks scheduled today',
+    close: isJa ? '閉じる' : 'Close',
+    show: isJa ? '表示' : 'Show',
+  };
 
   const HabitRow = ({ habit }: { habit: Habit }) => {
     const entry = entryMap.get(habit.id);
@@ -210,16 +232,16 @@ export default function TodayPage() {
             <p className={`text-lg font-black leading-tight tracking-tight sm:text-xl ${done ? 'opacity-50 line-through' : ''}`}>{habit.name}</p>
             <p className="mt-2 flex items-center gap-2 text-[11px] font-bold text-[#666]">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }} />
-              {habit.frequency === 'flexible' ? `週間目標: ${count} / ${habit.goal_count}` : `${count} / ${habit.goal_count} 完了`}
+              {habit.frequency === 'flexible' ? `${ui.weeklyGoal}: ${count} / ${habit.goal_count}` : `${count} / ${habit.goal_count} ${ui.doneSuffix}`}
             </p>
           </button>
           <div className="flex items-center gap-1.5 sm:gap-2">
             {habit.external_url && (
-              <a href={habit.external_url} target="_blank" rel="noreferrer" className="text-[#666] tap-active" aria-label="外部リンクを開く">
+              <a href={habit.external_url} target="_blank" rel="noreferrer" className="text-[#666] tap-active" aria-label={ui.openExternal}>
                 ↗
               </a>
             )}
-            <button onClick={() => void toggleDone(habit)} disabled={busyHabitId === habit.id} aria-label={`${habit.name} の完了を切り替える`}>
+            <button onClick={() => void toggleDone(habit)} disabled={busyHabitId === habit.id} aria-label={ui.toggleDone(habit.name)}>
               <ProgressRing progress={progress} done={done} accentColor={accentColor} />
             </button>
           </div>
@@ -231,8 +253,8 @@ export default function TodayPage() {
   return (
     <div className="space-y-7 sm:space-y-8">
       <section>
-        <p className="micro-label">今日のダッシュボード</p>
-        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">今日のフォーカス</h1>
+        <p className="micro-label">{ui.dashboardLabel}</p>
+        <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">{ui.dashboardTitle}</h1>
       </section>
 
       <section className="space-y-4 rounded-3xl border border-[#ebebeb] p-5 sm:p-6">
@@ -241,12 +263,12 @@ export default function TodayPage() {
             {String(completedCount).padStart(2, '0')}
             <span className="ml-1 text-3xl text-[#9f9fa8] sm:ml-2 sm:text-4xl">/{String(dueHabits.length).padStart(2, '0')}</span>
           </p>
-          <p className="text-xs font-bold text-[#666]">今日の進捗</p>
+          <p className="text-xs font-bold text-[#666]">{ui.todayProgress}</p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555]">未完了: {remainingCount}</div>
-          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555]">完了済み: {completedCount}</div>
-          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555] sm:block hidden">対象習慣: {dueHabits.length}</div>
+          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555]">{ui.remaining}: {remainingCount}</div>
+          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555]">{ui.completed}: {completedCount}</div>
+          <div className="rounded-2xl bg-[#f5f5f7] px-3 py-2 text-xs font-bold text-[#555] sm:block hidden">{ui.targetHabits}: {dueHabits.length}</div>
         </div>
       </section>
 
@@ -255,15 +277,15 @@ export default function TodayPage() {
           <p className="text-sm font-bold text-[#a33]">{errorMessage}</p>
           {retryTarget && (
             <button type="button" onClick={() => void retryUpdate()} disabled={busyHabitId !== null} className="tap-active rounded-full border border-[#a33] px-3 py-1 text-xs font-black tracking-[0.1em] text-[#a33] disabled:opacity-50">
-              再試行
+              {ui.retry}
             </button>
           )}
         </div>
       )}
 
       <section>
-        <p className="micro-label">今やるタスク</p>
-        {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#666] sm:py-24 sm:text-xl">今日の予定はありません</p>}
+        <p className="micro-label">{ui.nowTasks}</p>
+        {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#666] sm:py-24 sm:text-xl">{ui.noPlan}</p>}
 
         {routineHabits.length > 0 && <div className="mt-2 sm:mt-3">{routineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
         {oneOffHabits.length > 0 && <div className="mt-2 sm:mt-3">{oneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
@@ -272,8 +294,8 @@ export default function TodayPage() {
       {completedDueHabits.length > 0 && (
         <section>
           <button type="button" onClick={() => setShowCompleted((prev) => !prev)} className="tap-active micro-label flex items-center gap-2 text-left">
-            <span>完了済み ({String(completedDueHabits.length).padStart(2, '0')})</span>
-            <span className="text-xs text-[#666]">{showCompleted ? '閉じる' : '表示'}</span>
+            <span>{ui.completed} ({String(completedDueHabits.length).padStart(2, '0')})</span>
+            <span className="text-xs text-[#666]">{showCompleted ? ui.close : ui.show}</span>
           </button>
 
           {showCompleted && (
