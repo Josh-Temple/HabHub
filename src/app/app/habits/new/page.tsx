@@ -17,7 +17,7 @@ export default function NewHabitPage() {
       error: userError,
     } = await supabase.auth.getUser();
     if (userError || !user) {
-      throw new Error('ログイン状態を確認できませんでした。再ログインしてからもう一度お試しください。');
+      throw new Error('Unable to verify login status. Please sign in again and retry.');
     }
 
     const error = await withLegacyTitleFallback(

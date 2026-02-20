@@ -13,11 +13,11 @@ type AuthCallbackClientProps = {
 
 export default function AuthCallbackClient({ nextPath, tokenHash, type }: AuthCallbackClientProps) {
   const router = useRouter();
-  const [message, setMessage] = useState('ログインを処理しています...');
+  const [message, setMessage] = useState('Completing sign-in...');
 
   useEffect(() => {
     if (!tokenHash || !type) {
-      setMessage('リンクが無効です。ログイン画面から再度お試しください。');
+      setMessage('Invalid link. Please try again from the sign-in page.');
       router.replace('/login');
       return;
     }
@@ -27,7 +27,7 @@ export default function AuthCallbackClient({ nextPath, tokenHash, type }: AuthCa
       const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
 
       if (error) {
-        setMessage(`ログインに失敗しました: ${error.message}`);
+        setMessage(`Sign-in failed: ${error.message}`);
         router.replace('/login');
         return;
       }

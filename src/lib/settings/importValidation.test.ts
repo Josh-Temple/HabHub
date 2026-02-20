@@ -5,20 +5,20 @@ describe('validateImportPayload', () => {
   it('returns errors for invalid JSON', () => {
     const result = validateImportPayload('{bad json');
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain('JSONの構文が不正です。');
+    expect(result.errors).toContain('Invalid JSON syntax.');
   });
 
   it('returns errors for invalid shape', () => {
     const result = validateImportPayload(JSON.stringify({ habits: {}, entries: [] }));
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain('habits は配列である必要があります。');
+    expect(result.errors).toContain('habits must be an array.');
   });
 
   it('returns errors when array items are not objects', () => {
     const result = validateImportPayload(JSON.stringify({ habits: [1], entries: ['x'] }));
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain('habits の各要素はオブジェクトである必要があります。');
-    expect(result.errors).toContain('entries の各要素はオブジェクトである必要があります。');
+    expect(result.errors).toContain('Each item in habits must be an object.');
+    expect(result.errors).toContain('Each item in entries must be an object.');
   });
 
   it('returns parsed payload for valid shape', () => {
