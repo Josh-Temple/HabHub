@@ -23,11 +23,11 @@ export function validateImportPayload(rawPayload: string): ImportValidationResul
   try {
     parsedUnknown = JSON.parse(rawPayload);
   } catch {
-    return { ok: false, errors: ['JSONの構文が不正です。'] };
+    return { ok: false, errors: ['Invalid JSON syntax.'] };
   }
 
   if (!isRecord(parsedUnknown)) {
-    return { ok: false, errors: ['JSONのトップレベルはオブジェクトである必要があります。'] };
+    return { ok: false, errors: ['Top-level JSON value must be an object.'] };
   }
 
   const data = parsedUnknown as {
@@ -39,31 +39,31 @@ export function validateImportPayload(rawPayload: string): ImportValidationResul
   const errors: string[] = [];
 
   if (!Array.isArray(data.habits)) {
-    errors.push('habits は配列である必要があります。');
+    errors.push('habits must be an array.');
   }
 
   if (!Array.isArray(data.entries)) {
-    errors.push('entries は配列である必要があります。');
+    errors.push('entries must be an array.');
   }
 
   if (data.user_settings !== undefined && !isRecord(data.user_settings)) {
-    errors.push('user_settings はオブジェクトである必要があります。');
+    errors.push('user_settings must be an object.');
   }
 
   if (Array.isArray(data.habits) && data.habits.some((habit) => !isRecord(habit))) {
-    errors.push('habits の各要素はオブジェクトである必要があります。');
+    errors.push('Each item in habits must be an object.');
   }
 
   if (Array.isArray(data.entries) && data.entries.some((entry) => !isRecord(entry))) {
-    errors.push('entries の各要素はオブジェクトである必要があります。');
+    errors.push('Each item in entries must be an object.');
   }
 
   if (Array.isArray(data.habits) && data.habits.length > MAX_IMPORT_ITEMS) {
-    errors.push(`habits は ${MAX_IMPORT_ITEMS} 件以下にしてください。`);
+    errors.push(`habits must contain at most ${MAX_IMPORT_ITEMS} items.`);
   }
 
   if (Array.isArray(data.entries) && data.entries.length > MAX_IMPORT_ITEMS) {
-    errors.push(`entries は ${MAX_IMPORT_ITEMS} 件以下にしてください。`);
+    errors.push(`entries must contain at most ${MAX_IMPORT_ITEMS} items.`);
   }
 
   if (errors.length > 0) {

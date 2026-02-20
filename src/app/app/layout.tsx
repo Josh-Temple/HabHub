@@ -18,7 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   if (!ready) {
-    return <p className="px-5 pt-14 text-sm sm:px-10 sm:pt-20">セッションを確認中です...</p>;
+    return <p className="px-5 pt-14 text-sm sm:px-10 sm:pt-20">Checking session...</p>;
   }
 
   return (
@@ -28,8 +28,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Link href="/app/today" className="micro-label opacity-80">
             HABHUB
           </Link>
-          <Link href="/app/settings" className="tap-active rounded-xl px-2 py-1 text-sm font-bold text-[#6f6f78] sm:text-base" aria-label="設定">
-            設定
+          <Link href="/app/settings" className="tap-active rounded-xl px-2 py-1 text-sm font-bold text-[#6f6f78] sm:text-base" aria-label="Settings">
+            Settings
           </Link>
         </div>
       </header>

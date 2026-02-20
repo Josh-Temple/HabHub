@@ -2,11 +2,11 @@ import type { PostgrestError } from '@supabase/supabase-js';
 
 export function formatHabitWriteError(error: PostgrestError): string {
   if (error.message.includes("Could not find the 'name' column of 'habits' in the schema cache")) {
-    return "Supabaseのhabitsテーブルにnameカラムがありません。`supabase/sql/003_add_name_column_compat.sql`を実行して、スキーマキャッシュを更新してください。";
+    return "The Supabase habits table is missing the name column. Run `supabase/sql/003_add_name_column_compat.sql` and refresh the schema cache.";
   }
 
   if (error.message.includes('null value in column "title" of relation "habits" violates not-null constraint')) {
-    return "Supabaseのhabitsテーブルが旧スキーマ（title必須）です。`supabase/sql/004_make_title_compatible.sql`を実行して、titleカラムをnameと同期してください。";
+    return "The Supabase habits table is using a legacy schema (title required). Run `supabase/sql/004_make_title_compatible.sql` to keep title in sync with name.";
   }
 
   return error.message;

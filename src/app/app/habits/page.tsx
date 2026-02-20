@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/browser';
 import { buildHabitReorderPlan } from '@/lib/habits/reorder';
 import { Habit } from '@/types/domain';
 
-const ORDER_ERROR_MESSAGE = '並び順の保存に失敗しました。時間をおいてもう一度お試しください。';
+const ORDER_ERROR_MESSAGE = 'Failed to save order. Please try again later.';
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -63,9 +63,9 @@ export default function HabitsPage() {
   return (
     <div className="space-y-6 sm:space-y-7">
       <section>
-        <p className="micro-label">管理</p>
+        <p className="micro-label">Manage</p>
         <h1 className="mt-3 text-4xl font-black leading-[0.95] tracking-tighter sm:text-6xl">
-          習慣一覧
+          Habits
         </h1>
       </section>
 
@@ -129,7 +129,7 @@ export default function HabitsPage() {
       </div>
 
       <p className="pt-6 text-center text-xs font-black uppercase tracking-[0.45em] text-[#ebebeb]">
-        一覧の終わり
+        End of list
       </p>
     </div>
   );

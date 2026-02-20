@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/browser';
 import { validateImportPayload } from '@/lib/settings/importValidation';
 import { UserSettings } from '@/types/domain';
 
-type SectionStatus = '未実行' | `成功${string}` | `失敗: ${string}`;
+type SectionStatus = 'Not run' | `Success${string}` | `Failed: ${string}`;
 
 type ImportResult = {
   habits: SectionStatus;
@@ -15,15 +15,15 @@ type ImportResult = {
 };
 
 const INITIAL_IMPORT_RESULT: ImportResult = {
-  habits: '未実行',
-  entries: '未実行',
-  user_settings: '未実行',
+  habits: 'Not run',
+  entries: 'Not run',
+  user_settings: 'Not run',
 };
 
 function formatImportSummary(results: ImportResult): string {
-  const hasFailure = Object.values(results).some((result) => result.startsWith('失敗'));
+  const hasFailure = Object.values(results).some((result) => result.startsWith('Failed'));
   return [
-    hasFailure ? 'インポート完了（エラーあり）' : 'インポート完了',
+    hasFailure ? 'Import completed (with errors)' : 'Import completed',
     `habits: ${results.habits}`,
     `entries: ${results.entries}`,
     `user_settings: ${results.user_settings}`,
@@ -32,9 +32,9 @@ function formatImportSummary(results: ImportResult): string {
 
 function toSectionStatus(error: PostgrestError | null, successLabel: string): SectionStatus {
   if (error) {
-    return `失敗: ${error.message}`;
+    return `Failed: ${error.message}`;
   }
-  return `成功 (${successLabel})`;
+  return `Success (${successLabel})`;
 }
 
 export default function SettingsPage() {
@@ -101,14 +101,14 @@ export default function SettingsPage() {
     const results: ImportResult = { ...INITIAL_IMPORT_RESULT };
 
     const habitsResult = await supabase.from('habits').upsert(habits, { onConflict: 'id' });
-    results.habits = toSectionStatus(habitsResult.error, `${habits.length}件`);
+    results.habits = toSectionStatus(habitsResult.error, `${habits.length} items`);
 
     const entriesResult = await supabase.from('entries').upsert(entries, { onConflict: 'user_id,habit_id,date_key' });
-    results.entries = toSectionStatus(entriesResult.error, `${entries.length}件`);
+    results.entries = toSectionStatus(entriesResult.error, `${entries.length} items`);
 
     if (user_settings) {
       const userSettingsResult = await supabase.from('user_settings').upsert(user_settings, { onConflict: 'user_id' });
-      results.user_settings = toSectionStatus(userSettingsResult.error, '1件');
+      results.user_settings = toSectionStatus(userSettingsResult.error, '1 item');
     }
 
     if (migration && settings) {
@@ -191,8 +191,8 @@ export default function SettingsPage() {
           <p className="font-bold">{ui.preflight}</p>
           {validation.ok && validation.parsed ? (
             <ul className="mt-2 space-y-1 text-[#666]">
-              <li>habits: {validation.parsed.habits.length} 件</li>
-              <li>entries: {validation.parsed.entries.length} 件</li>
+              <li>habits: {validation.parsed.habits.length} items</li>
+              <li>entries: {validation.parsed.entries.length} items</li>
               <li>user_settings: {validation.parsed.user_settings ? ui.yes : ui.no}</li>
             </ul>
           ) : (
