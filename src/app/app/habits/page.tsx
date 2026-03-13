@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/browser';
-import { buildHabitReorderPlan } from '@/lib/habits/reorder';
+import { buildHabitReorderPlan, validateReorderUpdates } from '@/lib/habits/reorder';
 import { Habit } from '@/types/domain';
 
-const ORDER_ERROR_MESSAGE = 'Failed to save order. Please try again later.';
+const ORDER_ERROR_MESSAGE = 'Failed to save order. Please retry.';
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -15,10 +15,15 @@ export default function HabitsPage() {
 
   const load = async () => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('habits')
       .select('*')
       .order('sort_order', { ascending: true });
+
+    if (error) {
+      setOrderError('Failed to load habits.');
+      return;
+    }
 
     setHabits((data ?? []) as Habit[]);
   };
@@ -31,22 +36,22 @@ export default function HabitsPage() {
     const plan = buildHabitReorderPlan(activeHabits, habit.id, direction);
     if (!plan) return;
 
+    const validation = validateReorderUpdates(plan.updates);
+    if (!validation.ok) {
+      setOrderError(validation.reason ?? ORDER_ERROR_MESSAGE);
+      return;
+    }
+
     setOrderError(null);
     setIsSavingOrder(true);
 
     try {
       const supabase = createClient();
-      const results = await Promise.all(
-        plan.updates.map((update) =>
-          supabase
-            .from('habits')
-            .update({ sort_order: update.sort_order })
-            .eq('id', update.id)
-        )
-      );
+      const { error } = await supabase.rpc('reorder_habits', {
+        p_updates: plan.updates,
+      });
 
-      const failed = results.find((result) => result.error);
-      if (failed?.error) {
+      if (error) {
         setOrderError(ORDER_ERROR_MESSAGE);
       }
 
@@ -70,9 +75,12 @@ export default function HabitsPage() {
       </section>
 
       {orderError && (
-        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
-          {orderError}
-        </p>
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+          <span>{orderError}</span>
+          <button className="rounded-full border border-red-300 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em]" onClick={() => void load()}>
+            Reload
+          </button>
+        </div>
       )}
 
       <div className="space-y-3 sm:space-y-4">

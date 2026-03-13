@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/browser';
-import { validateImportPayload } from '@/lib/settings/importValidation';
+import { ImportMode, validateImportPayload } from '@/lib/settings/importValidation';
 import { UserSettings } from '@/types/domain';
 
 type SectionStatus = 'Not run' | `Success${string}` | `Failed: ${string}`;
@@ -23,7 +23,7 @@ const INITIAL_IMPORT_RESULT: ImportResult = {
 function formatImportSummary(results: ImportResult): string {
   const hasFailure = Object.values(results).some((result) => result.startsWith('Failed'));
   return [
-    hasFailure ? 'Import completed (with errors)' : 'Import completed',
+    hasFailure ? 'Import finished with partial failures.' : 'Import completed successfully.',
     `habits: ${results.habits}`,
     `entries: ${results.entries}`,
     `user_settings: ${results.user_settings}`,
@@ -42,9 +42,9 @@ export default function SettingsPage() {
   const [payload, setPayload] = useState('');
   const [message, setMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
-  const [runMigrationAfterImport, setRunMigrationAfterImport] = useState(false);
+  const [importMode, setImportMode] = useState<ImportMode>('restore');
 
-  const validation = useMemo(() => validateImportPayload(payload), [payload]);
+  const validation = useMemo(() => validateImportPayload(payload, importMode), [payload, importMode]);
   const hasPayload = payload.trim().length > 0;
   const lang = settings?.language ?? 'en';
   const isJa = lang === 'ja';
@@ -55,16 +55,20 @@ export default function SettingsPage() {
     language: isJa ? '言語' : 'Language',
     weekStart: isJa ? '週の開始日' : 'Week start',
     exportJson: isJa ? 'JSONをエクスポート' : 'Export JSON',
-    importJson: isJa ? 'JSONをインポート' : 'Import JSON',
-    importLegacy: isJa ? '旧データをインポート' : 'Import legacy data',
+    importJson: isJa ? 'JSONを復元' : 'Import restore JSON',
+    importLegacy: isJa ? '旧データを移行' : 'Import legacy migration JSON',
     jsonData: isJa ? 'JSONデータ' : 'JSON data',
     preflight: isJa ? '事前確認' : 'Preflight check',
     yes: isJa ? 'あり' : 'yes',
     no: isJa ? 'なし' : 'no',
-    confirm: isJa ? 'この内容でインポートしますか？' : 'Import this payload?',
-    note: isJa ? '失敗した項目があっても、成功した項目は反映されます。' : 'Successful sections are applied even if some sections fail.',
+    confirm: isJa ? 'この内容でインポートしますか？' : 'Run this import?',
+    partialNote: isJa
+      ? '各セクション（habits/entries/user_settings）は独立して適用されます。失敗時は結果を確認して再実行してください。'
+      : 'Each section (habits/entries/user_settings) is applied independently. Review failures and retry safely.',
     run: isJa ? '実行' : 'Run',
     cancel: isJa ? 'キャンセル' : 'Cancel',
+    modeRestore: isJa ? 'モード: 復元' : 'Mode: restore',
+    modeLegacy: isJa ? 'モード: 旧形式移行' : 'Mode: legacy migration',
   };
 
   const load = async () => {
@@ -89,34 +93,57 @@ export default function SettingsPage() {
     setMessage(isJa ? 'エクスポート完了' : 'Export completed');
   };
 
-  const executeImport = async (migration = false) => {
+  const executeImport = async () => {
     if (!validation.ok || !validation.parsed) {
       setMessage(isJa ? `インポート失敗: ${validation.errors.join(' / ')}` : `Import failed: ${validation.errors.join(' / ')}`);
       setShowConfirm(false);
       return;
     }
 
-    const { habits, entries, user_settings } = validation.parsed;
     const supabase = createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setMessage(isJa ? 'ユーザー情報の取得に失敗しました。再ログインしてください。' : 'Failed to verify user. Please sign in again.');
+      setShowConfirm(false);
+      return;
+    }
+
+    const habits = validation.parsed.habits.map((habit) => ({ ...habit, user_id: user.id }));
+    const entries = validation.parsed.entries.map((entry) => ({ ...entry, user_id: user.id }));
+    const user_settings = validation.parsed.user_settings
+      ? { ...validation.parsed.user_settings, user_id: user.id }
+      : undefined;
+
     const results: ImportResult = { ...INITIAL_IMPORT_RESULT };
 
     const habitsResult = await supabase.from('habits').upsert(habits, { onConflict: 'id' });
     results.habits = toSectionStatus(habitsResult.error, `${habits.length} items`);
 
-    const entriesResult = await supabase.from('entries').upsert(entries, { onConflict: 'user_id,habit_id,date_key' });
+    const entriesResult = await supabase
+      .from('entries')
+      .upsert(entries, { onConflict: 'user_id,habit_id,date_key' });
     results.entries = toSectionStatus(entriesResult.error, `${entries.length} items`);
 
     if (user_settings) {
-      const userSettingsResult = await supabase.from('user_settings').upsert(user_settings, { onConflict: 'user_id' });
+      const userSettingsResult = await supabase
+        .from('user_settings')
+        .upsert(user_settings, { onConflict: 'user_id' });
       results.user_settings = toSectionStatus(userSettingsResult.error, '1 item');
     }
 
-    if (migration && settings) {
-      await supabase.from('user_settings').update({ migration_done: true }).eq('user_id', settings.user_id);
+    if (importMode === 'legacy_migration') {
+      await supabase.from('user_settings').update({ migration_done: true }).eq('user_id', user.id);
     }
 
-    setMessage(formatImportSummary(results));
+    const warningSection = validation.warnings.length > 0
+      ? `\nWarnings:\n- ${validation.warnings.join('\n- ')}`
+      : '';
 
+    setMessage(`${formatImportSummary(results)}${warningSection}`);
     await load();
     setShowConfirm(false);
   };
@@ -165,7 +192,7 @@ export default function SettingsPage() {
         <button
           className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]"
           onClick={() => {
-            setRunMigrationAfterImport(false);
+            setImportMode('restore');
             setShowConfirm(true);
           }}
         >
@@ -175,7 +202,7 @@ export default function SettingsPage() {
           <button
             className="tap-active flex w-full items-center justify-between py-4 text-left text-[11px] font-bold uppercase tracking-[0.15em] sm:py-5 sm:text-sm sm:tracking-[0.2em]"
             onClick={() => {
-              setRunMigrationAfterImport(true);
+              setImportMode('legacy_migration');
               setShowConfirm(true);
             }}
           >
@@ -189,12 +216,22 @@ export default function SettingsPage() {
       {hasPayload && (
         <section className="rounded-3xl border border-[#ebebeb] bg-white p-4 text-sm">
           <p className="font-bold">{ui.preflight}</p>
+          <p className="mt-1 text-xs text-[#666]">{importMode === 'legacy_migration' ? ui.modeLegacy : ui.modeRestore}</p>
           {validation.ok && validation.parsed ? (
-            <ul className="mt-2 space-y-1 text-[#666]">
-              <li>habits: {validation.parsed.habits.length} items</li>
-              <li>entries: {validation.parsed.entries.length} items</li>
-              <li>user_settings: {validation.parsed.user_settings ? ui.yes : ui.no}</li>
-            </ul>
+            <>
+              <ul className="mt-2 space-y-1 text-[#666]">
+                <li>habits: {validation.parsed.habits.length} items</li>
+                <li>entries: {validation.parsed.entries.length} items</li>
+                <li>user_settings: {validation.parsed.user_settings ? ui.yes : ui.no}</li>
+              </ul>
+              {validation.warnings.length > 0 && (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-700">
+                  {validation.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              )}
+            </>
           ) : (
             <ul className="mt-2 list-disc space-y-1 pl-5 text-red-600">
               {validation.errors.map((error) => (
@@ -208,9 +245,9 @@ export default function SettingsPage() {
       {showConfirm && (
         <section className="rounded-3xl border border-black bg-white p-4">
           <p className="text-sm font-bold">{ui.confirm}</p>
-          <p className="mt-2 text-xs text-[#666]">{ui.note}</p>
+          <p className="mt-2 text-xs text-[#666]">{ui.partialNote}</p>
           <div className="mt-4 flex gap-2">
-            <button className="tap-active rounded-2xl bg-black px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-white disabled:opacity-40" disabled={!validation.ok} onClick={() => void executeImport(runMigrationAfterImport)}>{ui.run}</button>
+            <button className="tap-active rounded-2xl bg-black px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-white disabled:opacity-40" disabled={!validation.ok} onClick={() => void executeImport()}>{ui.run}</button>
             <button className="tap-active rounded-2xl bg-[#f5f5f7] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em]" onClick={() => setShowConfirm(false)}>{ui.cancel}</button>
           </div>
         </section>
