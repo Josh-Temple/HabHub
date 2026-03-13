@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHabitReorderPlan } from '@/lib/habits/reorder';
+import { buildHabitReorderPlan, validateReorderUpdates } from '@/lib/habits/reorder';
 import { Habit } from '@/types/domain';
 
 const createHabit = (id: string, sortOrder: number): Habit => ({
@@ -34,5 +34,28 @@ describe('buildHabitReorderPlan', () => {
     const habits = [createHabit('a', 0), createHabit('b', 1)];
     expect(buildHabitReorderPlan(habits, 'a', -1)).toBeNull();
     expect(buildHabitReorderPlan(habits, 'b', 1)).toBeNull();
+  });
+});
+
+describe('validateReorderUpdates', () => {
+  it('accepts contiguous updates with unique ids', () => {
+    const result = validateReorderUpdates([
+      { id: 'a', sort_order: 0 },
+      { id: 'b', sort_order: 1 },
+    ]);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects duplicate ids and non-contiguous sort_order values', () => {
+    expect(validateReorderUpdates([
+      { id: 'a', sort_order: 0 },
+      { id: 'a', sort_order: 1 },
+    ])).toEqual({ ok: false, reason: 'Duplicate habit id found in updates.' });
+
+    expect(validateReorderUpdates([
+      { id: 'a', sort_order: 0 },
+      { id: 'b', sort_order: 2 },
+    ])).toEqual({ ok: false, reason: 'sort_order values must be contiguous from 0.' });
   });
 });

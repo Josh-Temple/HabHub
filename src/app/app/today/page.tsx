@@ -51,6 +51,7 @@ export default function TodayPage() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [retryTarget, setRetryTarget] = useState<{ habitId: string; count: number } | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const today = toDateKey(new Date());
 
   const entryMap = useMemo(() => new Map(entries.filter((entry) => entry.date_key === today).map((entry) => [entry.habit_id, entry])), [entries, today]);
@@ -65,9 +66,12 @@ export default function TodayPage() {
     ]);
 
     if (habitsError || entriesError || userError) {
+      setLoadFailed(true);
       setErrorMessage(ui.loadError);
       return;
     }
+
+    setLoadFailed(false);
 
     setHabits((hs ?? []) as Habit[]);
     setEntries((es ?? []) as Entry[]);
@@ -216,6 +220,11 @@ export default function TodayPage() {
     noPlan: isJa ? '今日の予定はありません' : 'No tasks scheduled today',
     close: isJa ? '閉じる' : 'Close',
     show: isJa ? '表示' : 'Show',
+    retryLoad: isJa ? '再読み込み' : 'Reload',
+    dueNow: isJa ? '今日やること' : 'Due now',
+    alreadyDone: isJa ? '今日できたこと' : 'Done today',
+    oneOff: isJa ? '単発タスク' : 'One-off tasks',
+    routine: isJa ? 'ルーティン' : 'Routine tasks',
   };
 
   const HabitRow = ({ habit }: { habit: Habit }) => {
@@ -275,6 +284,11 @@ export default function TodayPage() {
       {errorMessage && (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm font-bold text-[#a33]">{errorMessage}</p>
+          {loadFailed && (
+            <button type="button" onClick={() => void load()} disabled={busyHabitId !== null} className="tap-active rounded-full border border-[#a33] px-3 py-1 text-xs font-black tracking-[0.1em] text-[#a33] disabled:opacity-50">
+              {ui.retryLoad}
+            </button>
+          )}
           {retryTarget && (
             <button type="button" onClick={() => void retryUpdate()} disabled={busyHabitId !== null} className="tap-active rounded-full border border-[#a33] px-3 py-1 text-xs font-black tracking-[0.1em] text-[#a33] disabled:opacity-50">
               {ui.retry}
@@ -287,14 +301,15 @@ export default function TodayPage() {
         <p className="micro-label">{ui.nowTasks}</p>
         {dueHabits.length === 0 && <p className="py-16 text-center text-lg font-bold text-[#666] sm:py-24 sm:text-xl">{ui.noPlan}</p>}
 
-        {routineHabits.length > 0 && <div className="mt-2 sm:mt-3">{routineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
-        {oneOffHabits.length > 0 && <div className="mt-2 sm:mt-3">{oneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
+        {(routineHabits.length > 0 || oneOffHabits.length > 0) && <p className="mt-2 text-xs font-bold text-[#777]">{ui.dueNow}</p>}
+        {routineHabits.length > 0 && <div className="mt-2 sm:mt-3"><p className="micro-label">{ui.routine}</p>{routineHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
+        {oneOffHabits.length > 0 && <div className="mt-4 sm:mt-5"><p className="micro-label">{ui.oneOff}</p>{oneOffHabits.map((habit) => <HabitRow key={habit.id} habit={habit} />)}</div>}
       </section>
 
       {completedDueHabits.length > 0 && (
         <section>
           <button type="button" onClick={() => setShowCompleted((prev) => !prev)} className="tap-active micro-label flex items-center gap-2 text-left">
-            <span>{ui.completed} ({String(completedDueHabits.length).padStart(2, '0')})</span>
+            <span>{ui.alreadyDone} ({String(completedDueHabits.length).padStart(2, '0')})</span>
             <span className="text-xs text-[#666]">{showCompleted ? ui.close : ui.show}</span>
           </button>
 
