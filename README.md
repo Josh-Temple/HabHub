@@ -2,6 +2,9 @@
 
 Minimal habit tracker built with Next.js + Supabase.
 
+## Deployment
+- Production: https://hab-hub.vercel.app/
+
 ## Current architecture
 - **Frontend:** Next.js App Router (`src/app`) + TypeScript + Tailwind CSS.
 - **Data/Auth:** Supabase Auth + Postgres + RLS.
